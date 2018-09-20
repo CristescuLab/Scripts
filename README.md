@@ -1,6 +1,7 @@
 # Scripts
 Container of useful scripts used in the lab:
 - [blast_processing.py](#blast_processing.py)
+- [update_taxonomy.sh](#update_taxonomy.sh)
 
 ## blast_processing.py
 Parse a Blast output on format 6 with the following columns: 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'. It assumes that the stitle contains the lineage or the first two fields are species. If lineage is in stitle, it will assume 7 taxon levels: 'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'.
@@ -58,3 +59,5 @@ This will create the following files:
 1. test_number_of_reads_in_genus.tsv: This will contain the unique counts of reads per species
 2. test_Number_unique_genus_per_read.tsv: How many unique genus (and which ones) you recovered
 3. test_List_unique_genus.txt: A list of all unique species in your file that passed the filters.
+
+## update_taxonomy.sh
