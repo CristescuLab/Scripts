@@ -1,6 +1,7 @@
 # Scripts
 Container of useful scripts used in the lab:
 - [blast_processing.py](#blast_processingpy)
+- [submit_blast_n_process.sh](#submit_blast_n_processsh)
 - [update_taxonomy.sh](#update_taxonomysh)
 
 ## blast_processing.py
@@ -53,11 +54,27 @@ This will generate a TAB-delimited file with the following columns: qseqid, sseq
 6. You want to focus your analysis at the genus level
 
 Also, you want the outputs to be prefixed by `test`. You will use this script as follows:
+
 `python blast_processing.py -p 98 -q 98 -e 1E-10 -Q 100 -l 60 -t genus output.blast test`
 
 This will create the following files:
 1. test_number_of_reads_in_genus.tsv: This will contain the unique counts of reads per species
 2. test_Number_unique_genus_per_read.tsv: How many unique genus (and which ones) you recovered
 3. test_List_unique_genus.txt: A list of all unique species in your file that passed the filters.
+
+## submit_blast_n_process.sh
+This is the basic submission for blast and postprocess it. It is supposed to be used with sbatch, providing the filepath where the output files from the QC pipeline are (assume files end in `.trimmed.derep.fasta`), and db_path, the path to the datase (including the database name) you want to use.
+Let's assume that your results from the QC pipeline are in this path: `/home/user/work/run`, and that your database of interest is the called `COI` in the path `/home/user/Databases`. Then, you can submit the job my typing:
+
+`sbatch --export=file_path=/home/user/work/run,db_path=/home/user/Databases/COI submit_blast_n_process.sh`
+
+Giving this, you can submit a large number of jobs that are contained in diferent folders. For example, let's assume that you processed 10 samples, and the outputs are stored in folders called output.some.additional.info.sample1, output.some.additional.info.sample.sample2, etc. You can submit them all with this bash loop:
+
+```
+for i in `find . -type d -name "output*"`; do
+name=`cut -d'.' -f5 ${i}`
+sbatch --job-name=${name} --export=file_path=${i},db_path=/home/user/Databases/COI submit_blast_n_process.sh
+done
+```
 
 ## update_taxonomy.sh
