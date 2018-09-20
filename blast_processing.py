@@ -40,10 +40,20 @@ SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
 
 
 def get_sps_coi(line):
+    """
+    Helper when using COI markers from BOLD systems
+    :param line: line from blast output
+    :return: species string
+    """
     return line.split('|')[1]
 
 
 def get_sps(line):
+    """
+    Process each blast line
+    :param line: One row/line of the blast dataframe
+    :return: species string
+    """
     if '|' in line:
         return ' '.join(line.split('|')[2].split()[:2])
     elif 'Fish' in line:
@@ -122,10 +132,10 @@ def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     re = pd.concat([df.groupby('qseqid')[taxlevel].nunique().rename(
         'No. unique taxa'), df.groupby('qseqid')[taxlevel].unique().rename(
         'Unique taxa')], axis=1).sort_values(by='No. unique taxa', ascending=False)
-    re.to_csv('%s_Number_unique_species_per_read.tsv' %prefix, sep='\t')
+    re.to_csv('%s_Number_unique_%s_per_read.tsv' % (prefix, taxlevel), sep='\t')
     # List number of unique species above the min_reads
     sps = cou[cou > min_reads].index.unique().to_series()
-    sps.to_csv('%s_List_unique_%s' % (prefix, taxlevel), header=False, index=False)
+    sps.to_csv('%s_List_unique_%s.txt' % (prefix, taxlevel), header=False, index=False)
 
 
 def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
