@@ -1,7 +1,7 @@
 # Scripts
 Container of useful scripts used in the lab:
-- [blast_processing.py](#blast-processing-py)
-- [update_taxonomy.sh](#update-taxonomy-sh)
+- [blast_processing.py](#blast-processingpy)
+- [update_taxonomy.sh](#update-taxonomysh)
 
 ## blast_processing.py
 Parse a Blast output on format 6 with the following columns: 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'. It assumes that the stitle contains the lineage or the first two fields are species. If lineage is in stitle, it will assume 7 taxon levels: 'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'.
