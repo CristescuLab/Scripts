@@ -26,7 +26,7 @@ suffix=sys.argv[2]
 files=glob(os.path.join('*%s*' % prefix, '*.%s_number_of_reads_in_species.tsv' % suffix))
 df = []
 for f in files:
-    name = os.path.split(f)[0].split('.')[0]
+    name = os.path.split(f)[1].split('.')[0]
     df.append(pd.read_table(f, sep='\t', index_col=0, header=None, names=[name]))
 df = pd.concat(df,axis=1, sort=False)
 df.to_csv(sys.argv[3], sep='\t')
