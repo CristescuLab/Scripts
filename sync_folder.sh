@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
 
-## USAGE: bash sync_software.sh <folder>
+## USAGE: bash sync_software.sh <path2folder> <source_server> <target_server>
 # You need to be IN the folder you want to sync
+path2folder=$1
+source_server=$2
+target_server=$3
 
-h=`hostname`
-if [[ $h = *"cedar"* ]]; then
-    current_address="cedar.computecanada.ca"
-    other_address="graham.computecanada.ca"
-    else
-    other_address="cedar.computecanada.ca"
-    current_address="graham.computecanada.ca"
-fi
-
-if [[ $PWD = *"$1"* ]]; then
-   rsync -rltv ${current_address}:$PWD/* ./
-   rsync -rltv ./* ${other_address}:$PWD/; else
-   echo "YOU ARE NOT IN THE RIGHT FOLDER!!!"
-fi
+echo "Syncing ${source_server} to ${target_server}"
+rsync -rltv ${source_server}:${path2folder}/* ${target_server}:${path2folder}/
+rsync -rltv ${target_server}:${path2folder}/* ${source_server}:${path2folder}/

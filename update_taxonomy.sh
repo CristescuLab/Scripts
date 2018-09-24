@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 #TODO: download only if necessary. check MDsums and avoid duplications in the final file
-cpus=$1
+cpus=4
 echo bye | lftp -e "mirror -c" ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/
+if [[ -f tmp ]]; then
+rm tmp
+fi
+
 for i in *.gz; do
     zcat ${i} | cut -f1-3 > tmp
     parallel -j ${cpus} --pipepart -a tmp --block 500m \
