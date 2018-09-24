@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-## USAGE: bash sync_software.sh
+## USAGE: bash sync_software.sh <folder>
 # You need to be IN the folder you want to sync
 
 h=`hostname`
