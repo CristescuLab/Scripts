@@ -5,7 +5,7 @@ echo bye | lftp -e "mirror -c" ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession
 if [[ -f tmp ]]; then
 rm tmp
 fi
-
+parallel --citation
 for i in *.gz; do
     zcat ${i} | cut -f1-3 > tmp
     parallel -j ${cpus} --pipepart -a tmp --block 500m \
