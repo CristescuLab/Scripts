@@ -13,5 +13,3 @@ for i in *.gz; do
     rm tmp
 done
 sort -u accession2taxid > accession2taxid.lineage
-#taxonkit -j `nproc` lineage -i 3 accession2taxid | \
-#taxonkit -j `nproc` reformat -i 4 > accession2taxid.lineage
