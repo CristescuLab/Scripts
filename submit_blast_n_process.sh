@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#SBATCH -N 1
-#SBATCH -n 8
+#SBATCH --mem=32G
+#SBATCH --cpus-per-task=8
 #SBATCH -t 08:00:00
 #SBATCH -A def-mcristes
 #SBATCH --job-name=467_2S
@@ -22,9 +22,22 @@ cd $SLURM_SUBMIT_DIR
 out=`cut -d'.' -f5 ${file_path}`
 path="${file_path}/${out}"
 
-blastn -db ${db_path} -query ${file_path}/*.trimmed.derep.fasta \
--evalue 0.0001 -perc_identity 97 -max_target_seqs 40 \
--outfmt "6 qseqid sseqid pident evalue qcovs qlen length staxid stitle" \
--out ${path}.hits -num_threads 8
+do_blast=TRUE
+#chek if blast has been done before
+if [[ -f "${path}.hits" ]]; then
+    if [[ `grep "#END" ${path}.hits` != '' ]]; then
+    do_blast=TRUE
+    rm ${path}.hits; else
+    do_blast=FALSE
+    fi
+fi
+
+if [[ ${do_blast} == TRUE ]]; then
+    blastn -db ${db_path} -query ${file_path}/*.trimmed.derep.fasta \
+    -evalue 0.0001 -perc_identity 97 -max_target_seqs 40 \
+    -outfmt "6 qseqid sseqid pident evalue qcovs qlen length staxid stitle" \
+    -out ${path}.hits -num_threads 8
+    echo -e "\n#END" > ${path}.hits
+fi
 python blast.processing.py ${path}.hits ${path}_98_98 -p 98 -q 98
 python blast.processing.py ${path}.hits ${path}_98_90 -p 98 -q 90
