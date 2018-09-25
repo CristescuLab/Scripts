@@ -9,5 +9,5 @@
 
 for i in `find . -type d -name "*$1*"`; do
 name=`echo ${i} | rev | cut -d'.' -f 1 | rev`
-sbatch --job-name=${name} -e ${name}.out --export=file_path=${i},db_path=$2 $3/submit_blast_n_process.sh
+sbatch --job-name=${name} -o ${name}.out --export=file_path=${i},db_path=$2 $3/submit_blast_n_process.sh
 done
