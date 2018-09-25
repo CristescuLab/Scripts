@@ -39,5 +39,5 @@ if [[ ${do_blast} == TRUE ]]; then
     -out ${path}.hits -num_threads 8
     echo -e "\n#END" >> ${path}.hits
 fi
-python blast.processing.py ${path}.hits ${path}_98_98 -p 98 -q 98
-python blast.processing.py ${path}.hits ${path}_98_90 -p 98 -q 90
+python blast_processing.py ${path}.hits ${path}_98_98 -p 98 -q 98
+python blast_processing.py ${path}.hits ${path}_98_90 -p 98 -q 90
