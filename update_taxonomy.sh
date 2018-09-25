@@ -10,5 +10,6 @@ for i in *.gz; do
     parallel -j ${cpus} --pipepart -a tmp --block 500m \
     'taxonkit lineage -i 3 | taxonkit reformat -i 4' >> accession2taxid
     rm tmp
+    fi
 done
 sort -u accession2taxid > accession2taxid.lineage
