@@ -7,7 +7,7 @@
 # Usage:
 # bash launch_submit.sh <pattern_folder> <database_with_path> <path_to_code>
 
-for i in `find . -type d -name *"$1"*`; do
+for i in `find . -type d -name "*$1*"`; do
 name=`cut -d'.' -f5 ${i}`
 sbatch --job-name=${name} --export=file_path=${i},db_path=$2 $3/submit_blast_n_process.sh
 done
