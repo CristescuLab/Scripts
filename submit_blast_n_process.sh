@@ -19,7 +19,7 @@ cd $SLURM_SUBMIT_DIR
 
 #have a nice day! :)
 # The job command(s):
-out=`cut -d'.' -f5 <(echo ${file_path})`
+out=`echo ${i} | rev | cut -d'.' -f 1 | rev`
 path="${file_path}/${out}"
 
 do_blast=TRUE
