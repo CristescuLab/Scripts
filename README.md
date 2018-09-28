@@ -3,7 +3,7 @@
 Container of useful scripts used in the lab:
 - [blast_processing.py](#blast_processingpy)
 - [submit_blast_n_process.sh](#submit_blast_n_processsh)
-- [launch_submit.sh](#launch_submitsh")
+- [launch_submit.sh](#launch_submitsh)
 - [update_taxonomy.sh](#update_taxonomysh)
 
 ## blast_processing.py
