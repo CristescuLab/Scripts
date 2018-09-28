@@ -8,7 +8,7 @@ for i in *.gz; do
     a=`zcat ${i} | cut -f1-3 | tee tmp| tail -n 1| cut -f 1`
     if LC_ALL=C fgrep -q -m 1 blah accession2taxid; then
     echo "$i has previously been done"; else
-    parallel -j ${cpus} --pipepart -a tmp --block 500m \
+    parallel -j ${cpus} --tmpdir ${tmp_folder} --pipepart -a tmp --block 500m \
     'taxonkit lineage -i 3 | taxonkit reformat -i 4' >> accession2taxid
     rm tmp
     fi
