@@ -6,6 +6,6 @@ path2folder=$1
 source_server=$2
 target_server=$3
 
-echo "Syncing ${source_server} to ${target_server}"
-rsync -rltv ${source_server}:${path2folder}/* ${target_server}:${path2folder}/
-rsync -rltv ${target_server}:${path2folder}/* ${source_server}:${path2folder}/
+echo "Syncing ${source_server}:${path2folder} to ${target_server}:${path2folder}"
+rsync -rltv ${path2folder}/* ${target_server}:${path2folder}/
+rsync -rltv ${target_server}:${path2folder}/* ${path2folder}/
