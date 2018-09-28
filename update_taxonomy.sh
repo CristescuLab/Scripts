@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #TODO: download only if necessary. check MDsums and avoid duplications in the final file
+tmp_folder=$1
 cpus=4
 echo bye | lftp -e "mirror -c" ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/
 echo "will cite" | parallel --citation
@@ -12,4 +13,4 @@ for i in *.gz; do
     rm tmp
     fi
 done
-sort -u accession2taxid > accession2taxid.lineage
+sort -T ${tmp_folder} -u accession2taxid > accession2taxid.lineage
