@@ -57,6 +57,7 @@ def gz_size(fname):
             except EOFError:
                 with open('EOFERROR.txt', 'a') as A:
                     A.write('%s\n' % fname)
+                size = 0
     else:
         size = os.stat(fname).st_size
     if size == 0:

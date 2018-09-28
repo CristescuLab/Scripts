@@ -17,6 +17,7 @@ module load scipy-stack/2018b
 ## This is the basic submission for blast and postprocess it.
 cd $SLURM_SUBMIT_DIR
 
+if [ -z ${cpus} ]; then cpus=8; fi
 #have a nice day! :)
 # The job command(s):
 out=`echo ${file_path} | rev | cut -d'.' -f 1 | rev`

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# This script is a simple for loop to launch multiple scripts
-# jobs. It requires that the fasta to be blast be in a subfolder within where you will
-# be launching the job. It assumes that your folder is named with the last dot separated
-# field being of your sample. The submit_blast_n_process.sh
-# should be in your folder or in your path
+# This script is a simple for loop to launch multiple scripts jobs. It requires that
+# the files to be processed be in a subfolder within the one where you will be
+# launching the job. It assumes that your folder is named with the last dot separated
+# field being of your sample.
 # Usage:
 # bash launch_submit.sh <pattern_folder> <database_with_path> <path_to_code> <cpus> <mem> <account>
 # <cpus> <mem> <account> are optional, defaulting to 8, 32G and def-mcristes
