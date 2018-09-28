@@ -52,7 +52,11 @@ def gz_size(fname):
     type1, type2 = mimetypes.guess_type(fname)
     if type2 == 'gzip':
         with gzip.open(fname, 'rb') as f:
-            size = f.seek(0, whence=2)
+            try:
+                size = f.seek(0, whence=2)
+            except EOFError:
+                with open('EOFERROR.txt', 'a') as A:
+                    A.write('%s\n' % fname)
     else:
         size = os.stat(fname).st_size
     if size == 0:
