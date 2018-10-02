@@ -20,7 +20,7 @@ if [ -z ${acc} ]; then acc=def-mcristes; fi
 
 for i in `find . -type d -name "*${pattern_folder}*"`; do
 name=`echo ${i} | rev | cut -d'.' -f 1 | rev`
-sbatch --job-name=${name} -o ${name}.out --cpus-per-task=${cpus}\
+sbatch --job-name=${name} -o ${name}.out --cpus-per-task=${cpus} \
 --export=file_path=${i},db_path=${db},cpus=${cpus} --mem=${mem} \
 -A ${acc} ${path_to_code}
 done

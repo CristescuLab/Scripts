@@ -37,8 +37,7 @@ if [[ ${do_blast} == TRUE ]]; then
     blastn -db ${db_path} -query ${file_path}/*.trimmed.derep.fasta \
     -evalue 0.0001 -perc_identity 97 -max_target_seqs 40 \
     -outfmt "6 qseqid sseqid pident evalue qcovs qlen length staxid stitle" \
-    -out ${path}.hits -num_threads ${cpus}
-    echo -e "\n#END" >> ${path}.hits
+    -num_threads ${cpus} > ${path}.hits && echo -e "\n#END" >> ${path}.hits
 fi
 python blast_processing.py ${path}.hits ${path}_98_98 -p 98 -q 98
 python blast_processing.py ${path}.hits ${path}_98_90 -p 98 -q 90

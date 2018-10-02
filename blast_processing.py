@@ -27,6 +27,7 @@ Python modules:
 1. pandas
 2. matplotlib
 """
+import csv
 import optparse
 import matplotlib
 matplotlib.use('Agg')
@@ -75,7 +76,8 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     :return: Dataframe with the information
     """
     fnc = {True: get_sps_coi, False: get_sps}
-    df = pd.read_table(fn, sep='\t', header=None, comment='#', engine='python')
+    df = pd.read_table(fn, sep='\t', header=None, comment='#', quoting=csv.QUOTE_NONE,
+                       encoding='utf-8')
     if df.shape[1] > 6:
         names = 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'
         names = names.split()
