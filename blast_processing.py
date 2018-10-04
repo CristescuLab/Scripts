@@ -35,9 +35,16 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 import pandas as pd
 import numpy as np
+import re
 from subprocess import Popen, PIPE
 
 SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
+              'sstart send e-evalue bit_score qlen query_frame ' \
+              'query_translated, qcovs query_gaps subject_length subject_frame ' \
+              'subject_translated sovs,subject_gaps'.split(',')
+names = 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'
+names = names.split()
 
 
 def get_sps_coi(line):
@@ -60,7 +67,14 @@ def get_sps(line):
     elif 'Fish' in line:
        return line.split()[0]
     else:
-        return ' '.join(line.split()[1:3])
+        # try to assess if there is an accession number before species
+        line = line.split()
+        if bool(re.search(r'\d', line[0])):
+            idx = 1
+        else:
+            idx = 0
+        #return ' '.join(line.split()[1:3])
+        return ' '.join(line[idx:3])
 
 
 def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
@@ -79,8 +93,6 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     df = pd.read_table(fn, sep='\t', header=None, comment='#', quoting=csv.QUOTE_NONE,
                        encoding='utf-8')
     if df.shape[1] > 6:
-        names = 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'
-        names = names.split()
         by = 'evalue pident qcovs qlen length'.split()
         asc = [True, False, False, False, False]
     else:
@@ -248,8 +260,8 @@ if __name__ == '__main__':
     opts.add_option('--ntop', '-n', action='store', type=int, default=None,
                     help='Number of hits per query [default: %default]')
     opts.add_option('--use_coi', '-c', action='store_true', default=False,
-                    help=('If no special formating in teh database and using'
-                          ' COI [default: %default]'))
+                    help=('If no special formating in the database and using'
+                          ' COI from bold-like DBs [default: %default]'))
 
     opt, arg = opts.parse_args()
     main(arg[0], arg[1], opt.pident, opt.eval, opt.qcov, opt.qlen, opt.length,
