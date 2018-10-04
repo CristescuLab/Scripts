@@ -77,7 +77,7 @@ def get_sps(line):
         return ' '.join(line[idx:3])
 
 
-def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
+def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
                 coi=False):
     """
     Parse a blast file, and filter it if required
@@ -187,13 +187,14 @@ def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
     plt.close()
 
 
-def main(blast_file, prefix, pident=None, eval=None, qcov=None, qlen=None, length=None,
+def main(blast_file, prefix, names, pident=None, eval=None, qcov=None, qlen=None, length=None,
          output_filtered=False, taxlevel='species', min_reads=0, plot=False,
          tax_for_pattern=None, pattern=None, suffix_for_plot=None, ntop=None,
          use_coi=False):
     """
     Execute the code
 
+    :param names: Column names of the blast table
     :param blast_file: File with blast results
     :param pident: Minimum percent identity to retain
     :param eval: Maximum evalue to retain
@@ -215,7 +216,7 @@ def main(blast_file, prefix, pident=None, eval=None, qcov=None, qlen=None, lengt
     filters = {k: v for k, v in filters.items() if v is not None}
     kwargs = dict(filters=filters, output_filtered=output_filtered,
                   top_n_hits=ntop, coi=use_coi)
-    df = parse_blast(blast_file, **kwargs)
+    df = parse_blast(blast_file, names, **kwargs)
     get_reads_per_group(df, prefix, taxlevel=taxlevel, min_reads=min_reads)
     if plot:
         plot_tax(df, ntop, taxlevel=taxlevel, tax_for_pattern=tax_for_pattern,
@@ -264,7 +265,7 @@ if __name__ == '__main__':
                           ' COI from bold-like DBs [default: %default]'))
 
     opt, arg = opts.parse_args()
-    main(arg[0], arg[1], opt.pident, opt.eval, opt.qcov, opt.qlen, opt.length,
+    main(arg[0], arg[1], names, opt.pident, opt.eval, opt.qcov, opt.qlen, opt.length,
          opt.output_filtered, opt.taxlevel, opt.min_reads, opt.plot,
          opt.tax_for_pattern, opt.pattern, opt.suffix_for_plot, opt.ntop,
          opt.use_coi)
