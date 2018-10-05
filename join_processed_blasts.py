@@ -23,7 +23,7 @@ import sys, os
 
 prefix=sys.argv[1]
 suffix=sys.argv[2]
-files=glob(os.path.join('*%s*' % prefix, '*.%s_number_of_reads_in_species.tsv' % suffix))
+files=glob(os.path.join('*%s*' % prefix, '*%s*_number_of_reads_in_species.tsv' % suffix))
 df = []
 for f in files:
     name = os.path.split(f)[1].split('.')[0]
