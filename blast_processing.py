@@ -43,7 +43,8 @@ plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
               'sstart send e-evalue bit_score qlen query_frame ' \
               'query_translated, qcovs query_gaps subject_length subject_frame ' \
               'subject_translated sovs,subject_gaps'.split(',')
-names = 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'
+#TODO: check fix for staxid
+names = 'qseqid sseqid pident evalue qcovs qlen length stitle'
 names = names.split()
 
 
