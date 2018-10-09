@@ -123,7 +123,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
     if output_filtered:
         outfn = fn[:fn.rfind('.')]
-        df.to_csv(outfn, sep='\t', index=False, header=False)
+        df.to_csv('%s_filtered.tsv'  outfn, sep='\t', index=False, header=False)
     print(df.head())
     print(df.columns)
     return df
