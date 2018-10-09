@@ -114,10 +114,9 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         ndf = df.stitle.str.split(' ', expand=True)
         ndf = ndf.loc[:,1].str.split(';', expand=True)
         # Assume 7 level taxonomy
-        ndf.rename(columns=dict(zip(range(1, 8), SIX)), inplace=True)
+        ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-
     else:
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
@@ -126,6 +125,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         outfn = fn[:fn.rfind('.')]
         df.to_csv(outfn, sep='\t', index=False, header=False)
     print(df.head())
+    print(df.columns)
     return df
 
 
