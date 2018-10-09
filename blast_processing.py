@@ -112,7 +112,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     if df.stitle.str.count(';').mean() > 3:
         # Lineage present, incorporate it
         ndf = df.stitle.str.split(' ', expand=True)
-        ndf = ndf.loc[:1].str.split(';', expand=True)
+        ndf = ndf.loc[:,1].str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(1, 8), SIX)), inplace=True)
         # Join the dataframes
