@@ -111,8 +111,8 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df = df.sort_values(**args).groupby('qseqid').head(top_n_hits)
     if df.stitle.str.count(';').mean() > 3:
         # Lineage present, incorporate it
-        ndf = df.stitle.str.split(' ', expand=True)
-        ndf = ndf.loc[:,1].str.split(';', expand=True)
+        ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
+        ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
