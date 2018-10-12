@@ -16,6 +16,7 @@ iupac = {
     "N": "(A|C|G|T)"
 }
 
+
 def expander(s):
     pat = r"\(([^)]*)\)"
     pieces = re.split(pat, s)
@@ -23,12 +24,12 @@ def expander(s):
     for p in product(*pieces):
         yield "".join(p)
 
-primers=sys.argv[1:]
 
-done=[]
+primers=sys.argv[1:]
+done = []
 for primer in primers:
-    for key, val in iupac:
+    for key, val in iupac.items():
         primer = primer.replace(key, val)
     done += [t for t in expander(primer)]
 
-print('\n'.join(done))
+print('>seq\n%s\n' % '\n>seq\n'.join(done))
