@@ -139,7 +139,14 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         # if not taxonomic info in stitle but staxid is present, run taxonkit
         lin = get_lineages(fn)
         df = df.merge(lin, on='staxid', how='left')
+        df.rename(columns={'stitle':'stitle_old'}, inplace=True)
         df.rename(columns={'lineage': 'stitle'}, inplace=True)
+        ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
+        ndf = ndf.str.split(';', expand=True)
+        # Assume 7 level taxonomy
+        ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
+        # Join the dataframes
+        df = pd.concat([df, ndf], axis=1)
     else:
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
