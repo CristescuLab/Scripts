@@ -135,7 +135,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-    elif df.shape[1] == 9:
+    elif df.shape[1] == 9 and not pd.isnull(df.staxid).all():
         # if not taxonomic info in stitle but staxid is present, run taxonkit
         lin = get_lineages(fn)
         df = df.merge(lin, on='staxid', how='left')
