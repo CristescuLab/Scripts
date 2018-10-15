@@ -91,11 +91,14 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     :return: Dataframe with the information
     """
     fnc = {True: get_sps_coi, False: get_sps}
-    df = pd.read_table(fn, sep='\t', header=None, comment='#', quoting=csv.QUOTE_NONE,
-                       encoding='utf-8')
+    df = pd.read_table(fn, sep='\t', header=None, comment='#',
+                       quoting=csv.QUOTE_NONE, encoding='utf-8')
     if df.shape[1] > 6:
         by = 'evalue pident qcovs qlen length'.split()
         asc = [True, False, False, False, False]
+        if df.shape[1] == 9:
+            names = ['qseqid', 'sseqid', 'pident', 'evalue', 'qcovs', 'qlen',
+                     'length', 'staxid', 'stitle']
     else:
         names = 'qseqid sseqid pident evalue qcovs stitle'.split()
         by = 'evalue pident qcovs'.split()
