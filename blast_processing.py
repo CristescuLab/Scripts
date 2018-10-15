@@ -36,7 +36,8 @@ plt.style.use('ggplot')
 import pandas as pd
 import numpy as np
 import re
-from subprocess import Popen, PIPE
+from subprocess import check_output
+from io import BytesIO
 
 SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
 plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
@@ -46,6 +47,8 @@ plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
 #TODO: check fix for staxid
 names = 'qseqid sseqid pident evalue qcovs qlen length stitle'
 names = names.split()
+# line for taxonkit run
+taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit reformat"
 
 
 def get_sps_coi(line):
@@ -76,6 +79,18 @@ def get_sps(line):
             idx = 0
         #return ' '.join(line.split()[1:3])
         return ' '.join(line[idx:3])
+
+
+def get_lineages(fn):
+    """
+    If leneages are not in stitle compute them using the field 8 as staxid
+
+    :param fn: blast hits file name
+    :return: dataframe with lineages
+    """
+    o = check_output(taxonkit % fn, shell=True)
+    df = pd.read_table(BytesIO(o), header=None, names=['staxid', '_', 'lineage'])
+    return df.reindex(columns=['staxid', 'lineage'])
 
 
 def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
@@ -120,6 +135,11 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
+    elif df.shape[1] == 9:
+        # if not taxonomic info in stitle but staxid is present, run taxonkit
+        lin = get_lineages(fn)
+        df = df.merge(lin, on='staxid', how='left')
+        df.rename(columns={'lineage': 'stitle'}, inplace=True)
     else:
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
