@@ -39,6 +39,7 @@ import re
 from subprocess import check_output
 from io import BytesIO
 
+kings = ['Bacteria', ' ;', 'Eukaryota', 'Archaea']
 SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
 plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
               'sstart send e-evalue bit_score qlen query_frame ' \
@@ -93,6 +94,12 @@ def get_lineages(fn):
     return df.reindex(columns=['staxid', 'lineage'])
 
 
+def split_acc_lineage(x):
+    for i in kings:
+        if x.find(i) != -1:
+            return x[x.find(i):].strip()
+
+
 def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
                 coi=False):
     """
@@ -141,8 +148,8 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df = df.merge(lin, on='staxid', how='left')
         df.rename(columns={'stitle':'stitle_old'}, inplace=True)
         df.rename(columns={'lineage': 'stitle'}, inplace=True)
-        ndf = ndf = df.stitle.apply(
-            lambda x: x.strip().split()[0] if " " in x.strip() else x.strip().split()[0])
+        ndf = df.stitle.apply(split_acc_lineage)
+            #lambda x: x.strip().split()[0] if " " in x.strip() else x.strip().split()[0])
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
@@ -160,6 +167,34 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     return df
 
 
+def report_any(x, taxlevel):
+    """
+    For the taxonomic level that is being analyzed, fill it with the lowest rank if
+    taxlevel is empty
+    :param x: the row (series) where this is being applied
+    :param taxlevel: taxonomic level of interest
+    :return: new df
+    """
+    if pd.isnull(x.loc[taxlevel]):
+        for i in SIX[SIX.index(taxlevel)+1:]:
+            if pd.isnull(x.loc[i]):
+                continue
+            else:
+                x.loc[taxlevel] = x.loc[i]
+                return x
+        for j in reversed(SIX[:SIX.index(taxlevel)]):
+            if pd.isnull(x.loc[j]):
+                continue
+            else:
+                x.loc[taxlevel] = x.loc[j]
+                return x
+    else:
+        return x
+
+    x.loc[taxlevel] = "No taxonomic information"
+    return x
+
+
 def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     """
     Get the number of reads per taxonomic level and the number of unique taxa
@@ -171,10 +206,8 @@ def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     :return:
     """
     # Get number of reads per taxonomic group
-    #cou = df.groupby('qseqid')[taxlevel].unique()
     # Get empty taxlevels
-    df.loc[pd.isnull(df.loc[:,taxlevel]), taxlevel] = df[pd.isnull(
-        df.loc[:,taxlevel])].species
+    df = df.apply(report_any, args=(taxlevel,), axis=1)
     cou = df.groupby([taxlevel])['qseqid'].nunique()
     cou.to_csv('%s_number_of_reads_in_%s.tsv' % (prefix, taxlevel), sep='\t')
     # Get number of unique species per read
