@@ -95,6 +95,10 @@ def get_lineages(fn):
 
 
 def split_acc_lineage(x):
+    # if it does not have a kingdom and there is no space before the ;
+    if x.startswith(';'):
+        return x
+    # check with kigndom
     for i in kings:
         if x.find(i) != -1:
             return x[x.find(i):].strip()
@@ -175,7 +179,7 @@ def report_any(x, taxlevel):
     :param taxlevel: taxonomic level of interest
     :return: new df
     """
-    if pd.isnull(x.loc[taxlevel]):
+    if pd.isnull(x.loc[taxlevel]) or x.loc[taxlevel] == '':
         for i in SIX[SIX.index(taxlevel)+1:]:
             if pd.isnull(x.loc[i]):
                 continue
