@@ -179,24 +179,26 @@ def report_any(x, taxlevel):
     :param taxlevel: taxonomic level of interest
     :return: new df
     """
-    if pd.isnull(x.loc[taxlevel]) or x.loc[taxlevel] == '':
+    taxinfo = [None if pd.isnull(i) or (i == '') else i for i in x.iloc[10:]]
+    if pd.isnull(taxinfo).all():
+        x.loc[taxlevel] = "No taxonomic information"
+        return x
+    elif pd.isnull(x.loc[taxlevel]) or x.loc[taxlevel] == '':
         for i in SIX[SIX.index(taxlevel)+1:]:
-            if pd.isnull(x.loc[i]):
+            if pd.isnull(x.loc[i]) or x.loc[i] == '':
                 continue
             else:
-                x.loc[taxlevel] = x.loc[i]
+                x.loc[taxlevel] = x.loc[i] + '_from_%s' % i
                 return x
         for j in reversed(SIX[:SIX.index(taxlevel)]):
             if pd.isnull(x.loc[j]):
                 continue
             else:
-                x.loc[taxlevel] = x.loc[j]
+                x.loc[taxlevel] = x.loc[j] + '_from_%s' % j
                 return x
     else:
         return x
 
-    x.loc[taxlevel] = "No taxonomic information"
-    return x
 
 
 def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
@@ -222,6 +224,7 @@ def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     # List number of unique species above the min_reads
     sps = cou[cou > min_reads].index.unique().to_series()
     sps.to_csv('%s_List_unique_%s.txt' % (prefix, taxlevel), header=False, index=False)
+    return df
 
 
 def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
@@ -289,7 +292,7 @@ def main(blast_file, prefix, names, pident=None, eval=None, qcov=None, qlen=None
     kwargs = dict(filters=filters, output_filtered=output_filtered,
                   top_n_hits=ntop, coi=use_coi)
     df = parse_blast(blast_file, names, **kwargs)
-    get_reads_per_group(df, prefix, taxlevel=taxlevel, min_reads=min_reads)
+    df = get_reads_per_group(df, prefix, taxlevel=taxlevel, min_reads=min_reads)
     if plot:
         plot_tax(df, ntop, taxlevel=taxlevel, tax_for_pattern=tax_for_pattern,
                  pattern=pattern, suffix=suffix_for_plot, min_reads=min_reads)
