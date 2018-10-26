@@ -14,9 +14,8 @@ data_folder=`dirname $3`
 adapters=${EBROOTTRIMMOMATIC}/adapters/NexteraPE-PE.fa
 java -jar ${EBROOTTRIMMOMATIC}/trimmomatic-0.36.jar PE -phred33 \
 ${data_folder}/${data}_R1.fastq.gz ${data_folder}/${data}_R2.fastq.gz \
-${outdir}/${data}_R1_1P.fastq.gz ${outdir}/${data}_R1_1U.fastq.gz \
-${outdir}/${data}_R2_2P.fastq.gz ${outdir}/${data}_R2_2U.fastq.gz \
-ILLUMINACLIP:${adapters}:3:30:6 SLIDINGWINDOW:10:30
+${data}_R1_1P.fastq.gz ${data}_R1_1U.fastq.gz ${data}_R2_2P.fastq.gz \
+${data}_R2_2U.fastq.gz ILLUMINACLIP:${adapters}:3:30:6 SLIDINGWINDOW:10:30
 
 filterbytile.sh in1=${data}_R1_1P.fastq.gz in2=${data}_R2_2P.fastq.gz \
 out1=${data}.R1.fastq.gz out2=${data}.R2.fastq.gz
