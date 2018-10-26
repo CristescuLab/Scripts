@@ -19,8 +19,8 @@ outdir=output_${data}
 Fprimer=$2
 Rprimer=$3
 ## Reverse complement sequences in bash:
-Adapter1rc=`echo $myfish_Fprimer | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
-Adapter2rc=`echo $myfish_Rprimer | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
+Adapter1rc=`echo ${Fprimer} | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
+Adapter2rc=`echo ${Rprimer} | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
 echo "The forward primer sequence used is $Fprimer, and reverse primer $Rprimer"
 
 ## Paths to software

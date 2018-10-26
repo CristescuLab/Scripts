@@ -49,7 +49,8 @@ plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
 names = 'qseqid sseqid pident evalue qcovs qlen length stitle'
 names = names.split()
 # line for taxonkit run
-taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit reformat"
+taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| " \
+           "taxonkit reformat"
 
 
 def get_sps_coi(line):
@@ -90,7 +91,8 @@ def get_lineages(fn):
     :return: dataframe with lineages
     """
     o = check_output(taxonkit % fn, shell=True)
-    df = pd.read_table(BytesIO(o), header=None, names=['staxid', '_', 'lineage'])
+    df = pd.read_table(BytesIO(o), header=None, names=['staxid', '_', 'lineage'
+                                                       ])
     return df.reindex(columns=['staxid', 'lineage'])
 
 
@@ -116,6 +118,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     :param fn: Filename of the blast to parse
     :return: Dataframe with the information
     """
+    # TODO: incldude option of custum headers
     fnc = {True: get_sps_coi, False: get_sps}
     df = pd.read_table(fn, sep='\t', header=None, comment='#',
                        quoting=csv.QUOTE_NONE, encoding='utf-8')
@@ -163,6 +166,8 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
         df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
+        df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
+
     if output_filtered:
         outfn = fn[:fn.rfind('.')]
         df.to_csv('%s_filtered.tsv' %  outfn, sep='\t', index=False, header=False)
@@ -262,10 +267,10 @@ def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
     plt.close()
 
 
-def main(blast_file, prefix, names, pident=None, eval=None, qcov=None, qlen=None, length=None,
-         output_filtered=False, taxlevel='species', min_reads=0, plot=False,
-         tax_for_pattern=None, pattern=None, suffix_for_plot=None, ntop=None,
-         use_coi=False):
+def main(blast_file, prefix, names, pident=None, eval=None, qcov=None,
+         qlen=None, length=None, output_filtered=False, taxlevel='species',
+         min_reads=0, plot=False, tax_for_pattern=None, pattern=None,
+         suffix_for_plot=None, ntop=None, use_coi=False):
     """
     Execute the code
 
@@ -306,7 +311,6 @@ if __name__ == '__main__':
     opts.add_option('--output_filtered', '-o', action='store_true',
                     default=False, help=('Output a TSV with the filtered table'
                                          ' [default: %default]'))
-
     opts.add_option('--pident', '-p', action='store', type=float, default=None,
                     help='Minimum percent identity [default: %default]')
     opts.add_option('--eval', '-e', action='store', type=float, default=None,
