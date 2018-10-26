@@ -9,7 +9,7 @@ Adapter1rc=`echo ${ADAPTER_FWD}| tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
 ADAPTER_REV=$2
 Adapter2rc=`echo ${ADAPTER_REV}| tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
 data=`basename ${3%%_R1.fastq.gz}`
-data_foler=`dirname $3`
+data_folder=`dirname $3`
 #runtrimmo
 adapters=${EBROOTTRIMMOMATIC}/adapters/NexteraPE-PE.fa
 java -jar ${EBROOTTRIMMOMATIC}/trimmomatic-0.36.jar PE -phred33 \
