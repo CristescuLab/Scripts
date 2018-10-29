@@ -48,28 +48,32 @@ pear -f ${4}/${data}.1.fastq.gz -r ${4}/${data}.2.fastq.gz \
 # run fastqc on the pear  output
 fastqc ${4}/${data}*assembled* -o ${4}
 
-
+# Subset and deduplicate
 seqkit -j 10 subseq -r 1:360 ${data}.assembled.fastq | seqkit -j 10 rmdup \
 -s -i -o ${4}/${data}.clean.fastq -d ${pref}_duplicated.fastq.gz \
 -D ${pref}_duplicated.detail.txt
+seqkit -j 10 fq2fa ${4}/${data}.clean.fastq -o ${4}/${data}.clean.fasta
 
-# deduplicate unasembled
+# deduplicate unasembled forward
 seqkit -j 10 rmdup -s -i -o ${4}/${data}.unassembled.forward.clean.fastq \
 -d ${pref}.unassembled.forward.duplicated.fastq.gz \
 -D ${pref}.unassembled.forward.duplicated.detail.txt \
 ${data}.unassembled.forward.fastq
 
-# deduplicate unasembled
+seqkit -j 10 fq2fa ${4}/${data}.unassembled.forward.clean.fastq \
+-o ${4}/${data}.unassembled.forward.clean.fasta
+
+# deduplicate unasembled reverse
 seqkit -j 10 rmdup -s -i -o ${4}/${data}.unassembled.reverse.clean.fastq \
 -d ${pref}.unassembled.reverse.duplicated.fastq.gz \
 -D ${pref}.unassembled.reverse.duplicated.detail.txt \
 ${data}.unassembled.forward.fastq
 
+seqkit -j 10 {4}/${data}.unassembled.reverse.clean.fastq \
+-o {4}/${data}.unassembled.reverse.clean.fasta
+
 # run fastqc on the last output
 fastqc ${4}/${data}.clean.fastq -o ${4}
-
-seqkit -j 10 fq2fa ${4}/${data}.clean.fastq -o ${4}/${data}.clean.fasta
-
 }
 
 # primers for 18S
