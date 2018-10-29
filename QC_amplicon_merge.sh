@@ -57,7 +57,7 @@ seqkit -j 10 subseq -r 1:360 ${4}/${data}.assembled.fastq | seqkit -j 10 rmdup \
 
 seqkit -j 10 fq2fa ${4}/${data}.clean.fastq -o ${4}/${data}.clean.fasta
 
-# deduplicate unasembled forward
+# deduplicate unasembled forwardf
 seqkit -j 10 rmdup -s -i -o ${4}/${data}.unassembled.forward.clean.fastq \
 -d ${data}.unassembled.forward.duplicated.fastq.gz \
 -D ${data}.unassembled.forward.duplicated.detail.txt \
@@ -70,7 +70,7 @@ seqkit -j 10 fq2fa ${4}/${data}.unassembled.forward.clean.fastq \
 seqkit -j 10 rmdup -s -i -o ${4}/${data}.unassembled.reverse.clean.fastq \
 -d ${4}/${data}.unassembled.reverse.duplicated.fastq.gz \
 -D ${4}/${data}.unassembled.reverse.duplicated.detail.txt \
-${data}.unassembled.forward.fastq
+${4}/${data}.unassembled.reverse.fastq
 
 seqkit -j 10 fq2fa ${4}/${data}.unassembled.reverse.clean.fastq \
 -o ${4}/${data}.unassembled.reverse.clean.fasta
