@@ -169,8 +169,9 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
 
     if output_filtered:
-        outfn = fn[:fn.rfind('.')]
-        df.to_csv('%s_filtered.tsv' %  outfn, sep='\t', index=False, header=False)
+        #outfn = fn[:fn.rfind('.')]
+        df.to_csv('%s_filtered.tsv' % output_filtered, sep='\t', index=False,
+                  header=False)
     print(df.head())
     print(df.columns)
     return df
@@ -203,7 +204,6 @@ def report_any(x, taxlevel):
                 return x
     else:
         return x
-
 
 
 def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
@@ -267,39 +267,42 @@ def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
     plt.close()
 
 
-def main(blast_file, prefix, names, pident=None, eval=None, qcov=None,
-         qlen=None, length=None, output_filtered=False, taxlevel='species',
-         min_reads=0, plot=False, tax_for_pattern=None, pattern=None,
-         suffix_for_plot=None, ntop=None, use_coi=False):
+def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
+         query_coverage=None,length=None, output_filtered=False, min_reads=0,
+         taxon_level='species',plot=False, tax_for_pattern=None, pattern=None,
+         suffix_for_plot=None, n_top=None, use_coi=False):
     """
     Execute the code
 
+    :param prefix: Prefix for outputs
     :param names: Column names of the blast table
     :param blast_file: File with blast results
     :param pident: Minimum percent identity to retain
-    :param eval: Maximum evalue to retain
-    :param qcov: Minimum Query coverage to retain
-    :param qlen: Minimum query length to retain
+    :param evalue: Maximum evalue to retain
+    :param query_coverage: Minimum Query coverage to retain
+    :param query_len: Minimum query length to retain
     :param length: Minimum alignment length to retain
     :param output_filtered: Output the filtered dataframe to file
-    :param taxlevel: Taxonomic level to display
+    :param taxon_level: Taxonomic level to display
     :param min_reads: Minimum reads per taxonomic level to retain it.
     :param plot: Plot a barchart of number of reads per taxonomic level
     :param tax_for_pattern: Taxonomic level to restrict by pattern
     :param pattern: pattern to restrict the plotting
     :param suffix_for_plot: Output suffix (before extension)
-    :param ntop: Number of blast top hits to retain
+    :param n_top: Number of blast top hits to retain
     :param use_coi: Use COI formatting to parse species
     """
     filters = dict(zip('pident evalue qcovs qlen length'.split(),
-                       [pident,   eval,   qcov,   qlen,   length]))
+                       [pident, evalue, query_coverage, query_len, length]))
     filters = {k: v for k, v in filters.items() if v is not None}
+    if output_filtered:
+        output_filtered = prefix
     kwargs = dict(filters=filters, output_filtered=output_filtered,
-                  top_n_hits=ntop, coi=use_coi)
+                  top_n_hits=n_top, coi=use_coi)
     df = parse_blast(blast_file, names, **kwargs)
-    df = get_reads_per_group(df, prefix, taxlevel=taxlevel, min_reads=min_reads)
+    df = get_reads_per_group(df, prefix, taxlevel=taxon_level, min_reads=min_reads)
     if plot:
-        plot_tax(df, ntop, taxlevel=taxlevel, tax_for_pattern=tax_for_pattern,
+        plot_tax(df, n_top, taxlevel=taxon_level, tax_for_pattern=tax_for_pattern,
                  pattern=pattern, suffix=suffix_for_plot, min_reads=min_reads)
 
 
@@ -344,7 +347,9 @@ if __name__ == '__main__':
                           ' COI from bold-like DBs [default: %default]'))
 
     opt, arg = opts.parse_args()
-    main(arg[0], arg[1], names, opt.pident, opt.eval, opt.qcov, opt.qlen, opt.length,
-         opt.output_filtered, opt.taxlevel, opt.min_reads, opt.plot,
-         opt.tax_for_pattern, opt.pattern, opt.suffix_for_plot, opt.ntop,
-         opt.use_coi)
+    main(arg[0], arg[1], names, pident=opt.pident, evalue=opt.eval,
+         query_coverage=opt.qcov, query_len=opt.qlen, length=opt.length,
+         output_filtered=opt.output_filtered, taxon_level=opt.taxlevel,
+         min_reads=opt.min_reads, plot=opt.plot, pattern=opt.pattern,
+         tax_for_pattern=opt.tax_for_pattern, n_top=opt.ntop,
+         suffix_for_plot=opt.suffix_for_plot, use_coi=opt.use_coi)
