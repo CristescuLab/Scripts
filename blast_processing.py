@@ -49,8 +49,8 @@ plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
 names = 'qseqid sseqid pident evalue qcovs qlen length stitle'
 names = names.split()
 # line for taxonkit run
-taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| " \
-           "taxonkit reformat"
+taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit " \
+           "reformat"
 
 
 def get_sps_coi(line):
@@ -220,15 +220,23 @@ def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     # Get empty taxlevels
     df = df.apply(report_any, args=(taxlevel,), axis=1)
     cou = df.groupby([taxlevel])['qseqid'].nunique()
+    if 'size' in df.columns:
+        size = df.groupby([taxlevel])['size'].sum()
+        size.name = 'Total'
+        cou.name = 'Unique'
+        cou = pd.concat((cou, size), axis=1)
     cou.to_csv('%s_number_of_reads_in_%s.tsv' % (prefix, taxlevel), sep='\t')
     # Get number of unique species per read
     re = pd.concat([df.groupby('qseqid')[taxlevel].nunique().rename(
         'No. unique taxa'), df.groupby('qseqid')[taxlevel].unique().rename(
-        'Unique taxa')], axis=1).sort_values(by='No. unique taxa', ascending=False)
-    re.to_csv('%s_Number_unique_%s_per_read.tsv' % (prefix, taxlevel), sep='\t')
+        'Unique taxa')], axis=1).sort_values(by='No. unique taxa',
+                                             ascending=False)
+    re.to_csv('%s_Number_unique_%s_per_read.tsv' % (prefix, taxlevel),
+              sep='\t')
     # List number of unique species above the min_reads
     sps = cou[cou > min_reads].index.unique().to_series()
-    sps.to_csv('%s_List_unique_%s.txt' % (prefix, taxlevel), header=False, index=False)
+    sps.to_csv('%s_List_unique_%s.txt' % (prefix, taxlevel), header=False,
+               index=False)
     return df
 
 
@@ -267,10 +275,21 @@ def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
     plt.close()
 
 
+def parse_dedup(fn):
+    gr = []
+    with open(fn) as dedup:
+        for line in dedup:
+            if line.startswith('>'):
+                size = int(line[line.find('size=')+5: line.rfind(';')])
+                read = line.strip().split()[0][1:]
+                gr.append({'qseqid':read, 'size': size})
+    return pd.DataFrame(gr)
+
+
 def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
          query_coverage=None,length=None, output_filtered=False, min_reads=0,
-         taxon_level='species',plot=False, tax_for_pattern=None, pattern=None,
-         suffix_for_plot=None, n_top=None, use_coi=False):
+         taxon_level='species', plot=False, tax_for_pattern=None, pattern=None,
+         suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None):
     """
     Execute the code
 
@@ -300,10 +319,15 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     kwargs = dict(filters=filters, output_filtered=output_filtered,
                   top_n_hits=n_top, coi=use_coi)
     df = parse_blast(blast_file, names, **kwargs)
-    df = get_reads_per_group(df, prefix, taxlevel=taxon_level, min_reads=min_reads)
+    if report_dedup is not None
+        dedup = parse_dedup(report_dedup)
+        df = df.merge(on='qseqid')
+    df = get_reads_per_group(df, prefix, taxlevel=taxon_level,
+                             min_reads=min_reads)
     if plot:
-        plot_tax(df, n_top, taxlevel=taxon_level, tax_for_pattern=tax_for_pattern,
-                 pattern=pattern, suffix=suffix_for_plot, min_reads=min_reads)
+        plot_tax(df, n_top, taxlevel=taxon_level, pattern=pattern,
+                 tax_for_pattern=tax_for_pattern, suffix=suffix_for_plot,
+                 min_reads=min_reads)
 
 
 if __name__ == '__main__':
@@ -345,6 +369,9 @@ if __name__ == '__main__':
     opts.add_option('--use_coi', '-c', action='store_true', default=False,
                     help=('If no special formating in the database and using'
                           ' COI from bold-like DBs [default: %default]'))
+    opts.add_option('--report_dedup', '-d', action='store', default=None,
+                    help=('Use the dereplication information from this file '
+                          '(assumes usearch output)[default: %default]'))
 
     opt, arg = opts.parse_args()
     main(arg[0], arg[1], names, pident=opt.pident, evalue=opt.eval,
@@ -352,4 +379,5 @@ if __name__ == '__main__':
          output_filtered=opt.output_filtered, taxon_level=opt.taxlevel,
          min_reads=opt.min_reads, plot=opt.plot, pattern=opt.pattern,
          tax_for_pattern=opt.tax_for_pattern, n_top=opt.ntop,
-         suffix_for_plot=opt.suffix_for_plot, use_coi=opt.use_coi)
+         use_coi=opt.use_coi, suffix_for_plot=opt.suffix_for_plot,
+         report_dedup=opt.report_dedup)
