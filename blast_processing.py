@@ -319,9 +319,9 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     kwargs = dict(filters=filters, output_filtered=output_filtered,
                   top_n_hits=n_top, coi=use_coi)
     df = parse_blast(blast_file, names, **kwargs)
-    if report_dedup is not None
+    if report_dedup is not None:
         dedup = parse_dedup(report_dedup)
-        df = df.merge(on='qseqid')
+        df = df.merge(dedup, on='qseqid')
     df = get_reads_per_group(df, prefix, taxlevel=taxon_level,
                              min_reads=min_reads)
     if plot:
