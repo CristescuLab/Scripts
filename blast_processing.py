@@ -141,22 +141,22 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     if top_n_hits is not None:
         args = dict(by=by, ascending=asc)
         df = df.sort_values(**args).groupby('qseqid').head(top_n_hits)
-    if df.stitle.str.count(';').mean() > 3:
-        # Lineage present, incorporate it
-        ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
+    if df.shape[1] == 9 and not pd.isnull(df.staxid).all():
+        # if not taxonomic info in stitle but staxid is present, run taxonkit
+        lin = get_lineages(fn)
+        df = df.merge(lin, on='staxid', how='left')
+        df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
+        df.rename(columns={'lineage': 'stitle'}, inplace=True)
+        ndf = df.stitle.apply(split_acc_lineage)
+        # lambda x: x.strip().split()[0] if " " in x.strip() else x.strip().split()[0])
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-    elif df.shape[1] == 9 and not pd.isnull(df.staxid).all():
-        # if not taxonomic info in stitle but staxid is present, run taxonkit
-        lin = get_lineages(fn)
-        df = df.merge(lin, on='staxid', how='left')
-        df.rename(columns={'stitle':'stitle_old'}, inplace=True)
-        df.rename(columns={'lineage': 'stitle'}, inplace=True)
-        ndf = df.stitle.apply(split_acc_lineage)
-            #lambda x: x.strip().split()[0] if " " in x.strip() else x.strip().split()[0])
+    elif df.stitle.str.count(';').mean() > 3:
+        # Lineage present, incorporate it
+        ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
