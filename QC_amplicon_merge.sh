@@ -23,7 +23,7 @@ java -jar ${EBROOTTRIMMOMATIC}/trimmomatic-0.36.jar PE -phred33 \
 ${data_folder}/${data}_R1.fastq.gz ${data_folder}/${data}_R2.fastq.gz \
 ${4}/${data}_R1_1P.fastq.gz ${4}/${data}_R1_1U.fastq.gz \
 ${4}/${data}_R2_2P.fastq.gz ${4}/${data}_R2_2U.fastq.gz \
-ILLUMINACLIP:${adapters}:3:30:6 SLIDINGWINDOW:10:30
+ILLUMINACLIP:${adapters}:3:30:6 SLIDINGWINDOW:10:20
 
 # Run fastqc on the trimmomatic output
 fastqc ${4}/${data}_R[12]_[12][UP].fastq.gz -o ${4}
@@ -38,14 +38,14 @@ fastqc ${4}/${data}.R*.fastq.gz -o ${4}
 # remove primers with cutadappt
 cutadapt -j 10 -g "${ADAPTER_FWD}" -G "${ADAPTER_REV}" -a "${Adapter2rc}" \
 -A "${Adapter1rc}" -o ${4}/${data}.1.fastq.gz -p ${4}/${data}.2.fastq.gz \
--m 200 --match-read-wildcards -q 28 --trim-n -l 250  ${4}/${data}.R1.fastq.gz \
+-m 200 --match-read-wildcards -q 20 --trim-n -l 250  ${4}/${data}.R1.fastq.gz \
  ${4}/${data}.R2.fastq.gz > ${data}.log1
 
 # run fastqc on the Cutadapt output
 fastqc ${4}/${data}.[12].fastq.gz -o ${4}
 
 pear -f ${4}/${data}.1.fastq.gz -r ${4}/${data}.2.fastq.gz \
--o ${4}/${data} -q 28 -t 150 -n 200 -m 600 -j 8 -e 2 -p 0.01 -v 20
+-o ${4}/${data} -q 20 -t 150 -n 200 -m 600 -j 8 -e 2 -p 0.01 -v 20
 
 # run fastqc on the pear  output
 fastqc ${4}/${data}*assembled*.fastq -o ${4}
