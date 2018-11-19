@@ -80,6 +80,6 @@ fastqc ${4}/${data}.clean.fastq -o ${4}
 }
 
 # primers for 18S
-#f="GGWACWGGWTGAACWGTWTAYCCYCC"
-#r="TAAACTTCAGGGTGACCAAAAAATCA"
+#f="AGGGCAAKYCTGGTGCCAGC"
+#r="GRCGGTATCTRATCGYCTT"
 qc ${1} ${2} ${3} ${4}
