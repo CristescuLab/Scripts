@@ -83,7 +83,7 @@ def get_sps(line):
         else:
             idx = 0
         #return ' '.join(line.split()[1:3])
-        return ' '.join(line[idx:2])
+        return ' '.join(line[idx: idx + 2])
 
 
 def get_lineages(fn):
