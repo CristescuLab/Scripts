@@ -68,7 +68,10 @@ def get_sps(line):
     :param line: One row/line of the blast dataframe
     :return: species string
     """
-    if '|' in line:
+    if '([' in line:
+        # is from mitofish
+        return ' '.join(line.split()[:2])
+    elif '|' in line:
         return ' '.join(line.split('|')[2].split()[:2])
     elif 'Fish' in line:
        return line.split()[0]
@@ -80,7 +83,7 @@ def get_sps(line):
         else:
             idx = 0
         #return ' '.join(line.split()[1:3])
-        return ' '.join(line[idx:3])
+        return ' '.join(line[idx:2])
 
 
 def get_lineages(fn):
@@ -169,7 +172,6 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
 
     if output_filtered:
-        #outfn = fn[:fn.rfind('.')]
         df.to_csv('%s_filtered.tsv' % output_filtered, sep='\t', index=False,
                   header=False)
     print(df.head())
