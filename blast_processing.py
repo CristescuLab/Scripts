@@ -38,6 +38,7 @@ import numpy as np
 import re
 from subprocess import check_output
 from io import BytesIO
+from joblib import Parallel, delayed
 
 kings = ['Bacteria', ' ;', 'Eukaryota', 'Archaea']
 SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
@@ -51,6 +52,8 @@ names = names.split()
 # line for taxonkit run
 taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit " \
            "reformat"
+taxonkit2 = "echo '%s'|taxonkit name2taxid |taxonkit lineage -i 2| taxonkit " \
+           "reformat -i 3"
 
 
 def get_sps_coi(line):
@@ -86,17 +89,29 @@ def get_sps(line):
         return ' '.join(line[idx: idx + 2])
 
 
-def get_lineages(fn):
+def taxon2exe(sp):
+    return pd.read_table(BytesIO(check_output(taxonkit2 % sp, shell=True)),
+                             names=['species', 'staxid', '_', 'lineage'])
+
+def get_lineages(fn, typeof=1):
     """
-    If leneages are not in stitle compute them using the field 8 as staxid
+    If lineages are not in stitle compute them using the field 8 as staxid
 
     :param fn: blast hits file name
     :return: dataframe with lineages
     """
-    o = check_output(taxonkit % fn, shell=True)
-    df = pd.read_table(BytesIO(o), header=None, names=['staxid', '_', 'lineage'
-                                                       ])
-    return df.reindex(columns=['staxid', 'lineage'])
+    if not isinstance(typeof, pd.Series):
+        # assume that staxid is in the 8th column of the hits file
+        o = check_output(taxonkit % fn, shell=True)
+        df = pd.read_table(BytesIO(o), header=None,
+                           names=['staxid', '_', 'lineage']).reindex(
+            columns=['staxid', 'lineage'])
+    else:
+        # Assume you have species and want lineages
+        dfs = Parallel(n_jobs=-1)(delayed(taxon2exe)(sp) for sp in set(typeof))
+        df = pd.concat(dfs).reindex(columns=['species', 'staxid', 'lineage'])
+
+    return df
 
 
 def split_acc_lineage(x):
@@ -169,7 +184,12 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
         df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
-        df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
+        lin = get_lineages('', typeof=df.species)
+        df = df.merge(lin, on='species', how='left')
+        #df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
+        ndf = df.stitle.apply(split_acc_lineage)
+        ndf = ndf.str.split(';', expand=True)
+        df = pd.concat([df, ndf], axis=1)
 
     if output_filtered:
         df.to_csv('%s_filtered.tsv' % output_filtered, sep='\t', index=False,

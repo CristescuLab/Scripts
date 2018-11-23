@@ -6,5 +6,5 @@ path2folder=$1
 target_server=$2
 
 echo "Syncing ${path2folder} to ${target_server}:${path2folder}"
-rsync -rltv ${path2folder}/* ${target_server}:${path2folder}/
-rsync -rltv ${target_server}:${path2folder}/* ${path2folder}/
+rsync -rltv --ignore-existing --human-readable ${path2folder}/* ${target_server}:${path2folder}/
+rsync -rltv --ignore-existing --human-readable ${target_server}:${path2folder}/* ${path2folder}/
