@@ -73,11 +73,11 @@ def get_sps(line):
     """
     if '([' in line:
         # is from mitofish
-        return ' '.join(line.split()[:2])
+        sp = ' '.join(line.split()[:2])
     elif '|' in line:
-        return ' '.join(line.split('|')[2].split()[:2])
+        sp = ' '.join(line.split('|')[2].split()[:2])
     elif 'Fish' in line:
-       return line.split()[0]
+       sp = line.split()[0]
     else:
         # try to assess if there is an accession number before species
         line = line.split()
@@ -85,8 +85,11 @@ def get_sps(line):
             idx = 1
         else:
             idx = 0
-        #return ' '.join(line.split()[1:3])
-        return ' '.join(line[idx: idx + 2])
+        sp = ' '.join(line[idx: idx + 2])
+    if 'sp.' in sp:
+        return sp.split()[0]
+    else:
+        return sp
 
 
 def taxon2exe(sp):
@@ -166,7 +169,6 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
         df.rename(columns={'lineage': 'stitle'}, inplace=True)
         ndf = df.stitle.apply(split_acc_lineage)
-        # lambda x: x.strip().split()[0] if " " in x.strip() else x.strip().split()[0])
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
