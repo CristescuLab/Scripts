@@ -186,7 +186,7 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         # Assume that species is in the first two fields of stitle
         # def get_sps(x): return ' '.join(x.strip().split()[:2])
         df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
-        lin = get_lineages('', typeof=df.species)
+        lin = get_lineages('', typeof=df.species.tolist())
         df = df.merge(lin, on='species', how='left')
         #df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
         ndf = df.stitle.apply(split_acc_lineage)
