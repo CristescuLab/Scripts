@@ -36,24 +36,18 @@ plt.style.use('ggplot')
 import pandas as pd
 import numpy as np
 import re
-from subprocess import check_output
+from subprocess import run, PIPE
 from io import BytesIO
 from joblib import Parallel, delayed
 
 kings = ['Bacteria', ' ;', 'Eukaryota', 'Archaea']
 SIX = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
-plast_names = 'qseqid sseqid pident length nb_misses nb_gaps qstart qend ' \
-              'sstart send e-evalue bit_score qlen query_frame ' \
-              'query_translated, qcovs query_gaps subject_length subject_frame ' \
-              'subject_translated sovs,subject_gaps'.split(',')
-#TODO: check fix for staxid
-names = 'qseqid sseqid pident evalue qcovs qlen length stitle'
-names = names.split()
+
 # line for taxonkit run
 taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit " \
            "reformat"
-taxonkit2 = "echo '%s'|taxonkit name2taxid |taxonkit lineage -i 2| taxonkit " \
-           "reformat -i 3"
+taxonkit2 = "taxonkit name2taxid| taxonkit lineage -i 2 | taxonkit reformat " \
+            "-i 3"
 
 
 def get_sps_coi(line):
@@ -93,10 +87,12 @@ def get_sps(line):
 
 
 def taxon2exe(sp):
-    return pd.read_table(BytesIO(check_output(taxonkit2 % sp, shell=True)),
-                             names=['species', 'staxid', '_', 'lineage'])
+    st = run(taxonkit2, input=sp.encode('utf-8'), shell=True, stdout=PIPE)
+    return pd.read_table(BytesIO(st.stdout), names=['species', 'staxid', '_',
+                                                    'lineage'])
 
-def get_lineages(fn, typeof=1):
+
+def get_lineages(fn, typeof=1, cpus=-1):
     """
     If lineages are not in stitle compute them using the field 8 as staxid
 
@@ -105,13 +101,14 @@ def get_lineages(fn, typeof=1):
     """
     if not isinstance(typeof, pd.Series):
         # assume that staxid is in the 8th column of the hits file
-        o = check_output(taxonkit % fn, shell=True)
+        o = run(taxonkit % fn, shell=True, stdout=PIPE).stdout
         df = pd.read_table(BytesIO(o), header=None,
                            names=['staxid', '_', 'lineage']).reindex(
             columns=['staxid', 'lineage'])
     else:
         # Assume you have species and want lineages
-        dfs = Parallel(n_jobs=-1)(delayed(taxon2exe)(sp) for sp in set(typeof))
+        dfs = Parallel(n_jobs=cpus, prefer="threads")(delayed(taxon2exe)(sp)
+                                                      for sp in set(typeof))
         df = pd.concat(dfs).reindex(columns=['species', 'staxid', 'lineage'])
 
     return df
@@ -127,8 +124,10 @@ def split_acc_lineage(x):
             return x[x.find(i):].strip()
 
 
-def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
-                coi=False):
+def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
+                coi=False, same_blast=None, cpus=-1, taxlevel='species',
+                names='qseqid sseqid pident evalue qcovs qlen length staxid '
+                      'stitle'):
     """
     Parse a blast file, and filter it if required
 
@@ -140,20 +139,22 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     :return: Dataframe with the information
     """
     # TODO: incldude option of custum headers
+    names = names.split()
+    sortable = 'evalue pident qcovs qlen length'.split()
+    orientation = [True, False, False, False, False]
+    sorts = dict(zip(sortable, orientation))
     fnc = {True: get_sps_coi, False: get_sps}
-    df = pd.read_table(fn, sep='\t', header=None, comment='#',
-                       quoting=csv.QUOTE_NONE, encoding='utf-8')
-    if df.shape[1] > 6:
-        by = 'evalue pident qcovs qlen length'.split()
-        asc = [True, False, False, False, False]
-        if df.shape[1] == 9:
-            names = ['qseqid', 'sseqid', 'pident', 'evalue', 'qcovs', 'qlen',
-                     'length', 'staxid', 'stitle']
+    if same_blast is not None:
+        df = pd.read_table(same_blast, sep='\t', comment='#', encoding='utf-8',
+                           quoting=csv.QUOTE_NONE)
+
     else:
-        names = 'qseqid sseqid pident evalue qcovs stitle'.split()
-        by = 'evalue pident qcovs'.split()
-        asc = [True, False, False]
-    df.rename(columns=dict(zip(range(len(names)), names)), inplace=True)
+        df = pd.read_table(fn, sep='\t', header=None, comment='#', names=names,
+                           quoting=csv.QUOTE_NONE, encoding='utf-8')
+
+        by = list(set(df.columns).intersection(sortable))
+        asc = [sorts[x] for x in by]
+
     if filters:
         query = ' & '.join(
             ['(%s > %d)' % (k, v) if k != 'evalue' else '(%s < %e)' % (k, v)
@@ -162,19 +163,22 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
     if top_n_hits is not None:
         args = dict(by=by, ascending=asc)
         df = df.sort_values(**args).groupby('qseqid').head(top_n_hits)
-    if df.shape[1] == 9 and not pd.isnull(df.staxid).all():
+
+    if ('staxid' in df.columns) and not pd.isnull(df.staxid).all() and (
+            same_blast is None):
         # if not taxonomic info in stitle but staxid is present, run taxonkit
         lin = get_lineages(fn)
         df = df.merge(lin, on='staxid', how='left')
-        df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
-        df.rename(columns={'lineage': 'stitle'}, inplace=True)
+        if 'stitle' in df.columns:
+            df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
+            df.rename(columns={'lineage': 'stitle'}, inplace=True)
         ndf = df.stitle.apply(split_acc_lineage)
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-    elif df.stitle.str.count(';').mean() > 3:
+    elif (df.stitle.str.count(';').mean() > 3) and (same_blast is None):
         # Lineage present, incorporate it
         ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
         ndf = ndf.str.split(';', expand=True)
@@ -182,20 +186,20 @@ def parse_blast(fn, names, filters={}, top_n_hits=None, output_filtered=False,
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-    else:
+    elif same_blast is None:
         # Assume that species is in the first two fields of stitle
-        # def get_sps(x): return ' '.join(x.strip().split()[:2])
         df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
-        lin = get_lineages('', typeof=df.species.tolist())
-        df = df.merge(lin, on='species', how='left')
-        #df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
-        ndf = df.stitle.apply(split_acc_lineage)
-        ndf = ndf.str.split(';', expand=True)
-        df = pd.concat([df, ndf], axis=1)
+        if taxlevel != 'species':
+            # avoid computation if
+            lin = get_lineages('', typeof=df.species.tolist(), cpus=cpus)
+            df = df.merge(lin, on='species', how='left')
+            ndf = df.stitle.apply(split_acc_lineage)
+            ndf = ndf.str.split(';', expand=True)
+            df = pd.concat([df, ndf], axis=1)
 
     if output_filtered:
         df.to_csv('%s_filtered.tsv' % output_filtered, sep='\t', index=False,
-                  header=False)
+                  header=True)
     print(df.head())
     print(df.columns)
     return df
@@ -284,8 +288,6 @@ def plot_tax(df, n, taxlevel='species', tax_for_pattern=None, pattern=None,
         prefix += '_%s' % suffix
     cols = [taxlevel, 'qseqid']
     toplot = df.reindex(columns=cols)
-    #ntaxa = toplot.loc[:, taxlevel].nunique()
-    #color = matplotlib.cm.inferno_r(np.linspace(.0, 1., ntaxa))
     toplot = toplot.groupby([taxlevel]).nunique()
     toplot = toplot[toplot.qseqid > min_reads]
     fig, ax = plt.subplots()
@@ -313,7 +315,8 @@ def parse_dedup(fn):
 def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
          query_coverage=None,length=None, output_filtered=False, min_reads=0,
          taxon_level='species', plot=False, tax_for_pattern=None, pattern=None,
-         suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None):
+         suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None,
+         same_blast=None, cpus=-1):
     """
     Execute the code
 
@@ -340,8 +343,8 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     filters = {k: v for k, v in filters.items() if v is not None}
     if output_filtered:
         output_filtered = prefix
-    kwargs = dict(filters=filters, output_filtered=output_filtered,
-                  top_n_hits=n_top, coi=use_coi)
+    kwargs = dict(filters=filters, output_filtered=output_filtered, cpus=cpus,
+                  top_n_hits=n_top, coi=use_coi, same_blast=same_blast)
     df = parse_blast(blast_file, names, **kwargs)
     if report_dedup is not None:
         dedup = parse_dedup(report_dedup)
@@ -396,12 +399,24 @@ if __name__ == '__main__':
     opts.add_option('--report_dedup', '-d', action='store', default=None,
                     help=('Use the dereplication information from this file '
                           '(assumes usearch output)[default: %default]'))
+    opts.add_option('--same_blast', '-S', action='store', default=None,
+                    help=('Use ta previous filtered file and redo filtering '
+                          'with different (more stringent) parameters. Pass '
+                          'the filename or None [default: %default]'))
+    opts.add_option('--cpus', '-C', action='store', default=-1, type=int,
+                    help='number of cpus to use in the run [default: %default]'
+                    )
+    opts.add_option('--colnames', '-H', action='store',
+                    default='qseqid sseqid pident evalue qcovs qlen length '
+                            'staxid stitle', help='number of cpus to use in '
+                                                  'the run [default: %default]'
+                    )
 
     opt, arg = opts.parse_args()
-    main(arg[0], arg[1], names, pident=opt.pident, evalue=opt.eval,
+    main(arg[0], arg[1], opt.names, pident=opt.pident, evalue=opt.eval,
          query_coverage=opt.qcov, query_len=opt.qlen, length=opt.length,
          output_filtered=opt.output_filtered, taxon_level=opt.taxlevel,
          min_reads=opt.min_reads, plot=opt.plot, pattern=opt.pattern,
-         tax_for_pattern=opt.tax_for_pattern, n_top=opt.ntop,
+         tax_for_pattern=opt.tax_for_pattern, n_top=opt.ntop,cpus=opt.cpus,
          use_coi=opt.use_coi, suffix_for_plot=opt.suffix_for_plot,
-         report_dedup=opt.report_dedup)
+         report_dedup=opt.report_dedup, same_blast=opt.same_blast)
