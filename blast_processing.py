@@ -152,8 +152,8 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         df = pd.read_table(fn, sep='\t', header=None, comment='#', names=names,
                            quoting=csv.QUOTE_NONE, encoding='utf-8')
 
-        by = list(set(df.columns).intersection(sortable))
-        asc = [sorts[x] for x in by]
+    by = list(set(df.columns).intersection(sortable))
+    asc = [sorts[x] for x in by]
 
     if filters:
         query = ' & '.join(
@@ -200,12 +200,14 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     if output_filtered:
         df.to_csv('%s_filtered.tsv' % output_filtered, sep='\t', index=False,
                   header=True)
+        df.reindex(columns=by + [taxlevel]).groupby(taxlevel).describe(
+        ).to_csv('%s_filtered_stats.tsv' % output_filtered, sep='\t')
     print(df.head())
     print(df.columns)
     return df
 
 
-def report_any(x, taxlevel):
+def report_any(x, taxlevel, names):
     """
     For the taxonomic level that is being analyzed, fill it with the lowest rank if
     taxlevel is empty
@@ -213,7 +215,9 @@ def report_any(x, taxlevel):
     :param taxlevel: taxonomic level of interest
     :return: new df
     """
-    taxinfo = [None if pd.isnull(i) or (i == '') else i for i in x.iloc[10:]]
+    names = names.split() if isinstance(names, str) else names
+    taxinfo = [None if pd.isnull(i) or (i == '') else i for i in
+               x[x.index.difference(names)]]
     if pd.isnull(taxinfo).all():
         x.loc[taxlevel] = "No taxonomic information"
         return x
@@ -234,7 +238,8 @@ def report_any(x, taxlevel):
         return x
 
 
-def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
+def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10, names=[]
+                        ):
     """
     Get the number of reads per taxonomic level and the number of unique taxa
     per read
@@ -246,7 +251,7 @@ def get_reads_per_group(df, prefix, taxlevel='species', min_reads=10):
     """
     # Get number of reads per taxonomic group
     # Get empty taxlevels
-    df = df.apply(report_any, args=(taxlevel,), axis=1)
+    df = df.apply(report_any, args=(taxlevel, names,), axis=1)
     cou = df.groupby([taxlevel])['qseqid'].nunique()
     if 'size' in df.columns:
         size = df.groupby([taxlevel])['size'].sum()
@@ -344,12 +349,13 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     if output_filtered:
         output_filtered = prefix
     kwargs = dict(filters=filters, output_filtered=output_filtered, cpus=cpus,
-                  top_n_hits=n_top, coi=use_coi, same_blast=same_blast)
-    df = parse_blast(blast_file, names, **kwargs)
+                  top_n_hits=n_top, coi=use_coi, same_blast=same_blast,
+                  names=names)
+    df = parse_blast(blast_file, **kwargs)
     if report_dedup is not None:
         dedup = parse_dedup(report_dedup)
         df = df.merge(dedup, on='qseqid')
-    df = get_reads_per_group(df, prefix, taxlevel=taxon_level,
+    df = get_reads_per_group(df, prefix, taxlevel=taxon_level, names=names,
                              min_reads=min_reads)
     if plot:
         plot_tax(df, n_top, taxlevel=taxon_level, pattern=pattern,
@@ -413,7 +419,7 @@ if __name__ == '__main__':
                     )
 
     opt, arg = opts.parse_args()
-    main(arg[0], arg[1], opt.names, pident=opt.pident, evalue=opt.eval,
+    main(arg[0], arg[1], opt.colnames, pident=opt.pident, evalue=opt.eval,
          query_coverage=opt.qcov, query_len=opt.qlen, length=opt.length,
          output_filtered=opt.output_filtered, taxon_level=opt.taxlevel,
          min_reads=opt.min_reads, plot=opt.plot, pattern=opt.pattern,
