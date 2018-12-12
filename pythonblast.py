@@ -84,7 +84,7 @@ def main(db, query, evalue, p_id,  max_target_seqs=50, cpus=-1,
          outfmt_str='qseqid sseqid pident evalue qcovs qlen length staxid '
                     'stitle'):
     fasta = parse_fasta(query)
-    args = ['blastn', '-db', db, '-', query, '-evalue', evalue,
+    args = ['blastn', '-db', db, '-query', '-', '-evalue', evalue,
             '-perc_identity', p_id, '-outfmt', '"6 %s"' % outfmt_str,
             '-max_target_seqs', max_target_seqs]
     blasts = Parallel(n_jobs=cpus)(
