@@ -115,6 +115,8 @@ def get_lineages(fn, typeof=1, cpus=-1):
 
 
 def split_acc_lineage(x):
+    if np.isnan(x):
+        return
     # if it does not have a kingdom and there is no space before the ;
     try:
         if x.startswith(';'):
