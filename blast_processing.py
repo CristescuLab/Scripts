@@ -171,7 +171,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     if ('staxid' in df.columns) and not pd.isnull(df.staxid).all() and (
             same_blast is None):
         # if not taxonomic info in stitle but staxid is present, run taxonkit
-        lin = get_lineages(fn)
+        lin = get_lineages(fn, typeof=df.staxid)
         df = df.merge(lin, on='staxid', how='left')
         df.to_csv('df_before_split.tsv', sep='tsv', index=False)
         if 'stitle' in df.columns:
