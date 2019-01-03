@@ -99,17 +99,17 @@ def get_lineages(fn, typeof=1, cpus=-1):
     :param fn: blast hits file name
     :return: dataframe with lineages
     """
-    if not isinstance(typeof, pd.Series):
+    if not isinstance(typeof, list):
+        # Assume you have species and want lineages
+        dfs = Parallel(n_jobs=cpus, prefer="threads")(delayed(taxon2exe)(sp)
+                                                      for sp in set(typeof))
+        df = pd.concat(dfs).reindex(columns=['species', 'staxid', 'lineage'])
+    else:
         # assume that staxid is in the 8th column of the hits file
         o = run(taxonkit % fn, shell=True, stdout=PIPE).stdout
         df = pd.read_table(BytesIO(o), header=None,
                            names=['staxid', '_', 'lineage']).reindex(
             columns=['staxid', 'lineage'])
-    else:
-        # Assume you have species and want lineages
-        dfs = Parallel(n_jobs=cpus, prefer="threads")(delayed(taxon2exe)(sp)
-                                                      for sp in set(typeof))
-        df = pd.concat(dfs).reindex(columns=['species', 'staxid', 'lineage'])
 
     return df
 

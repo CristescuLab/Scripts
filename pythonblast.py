@@ -65,8 +65,7 @@ def stdin_run(args, input, **kwargs):
     input = input.encode('utf-8') if isinstance(input, str) else input
     if isinstance(input, tuple):
         file_name, input = input
-    exe = run(args, input=input, stderr=PIPE, stdout=PIPE,
-              **kwargs)
+    exe = run(args, input=input, stderr=PIPE, stdout=PIPE, **kwargs)
     try:
         exe.check_returncode()
     except CalledProcessError:

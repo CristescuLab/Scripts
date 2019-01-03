@@ -69,7 +69,7 @@ cutadapt -g "${ADAPTER_FWD}" -G "${ADAPTER_REV}" -a "${Adapter2rc}" \
 ${fileset}_R1.fastq.gz ${fileset}_R2.fastq.gz > ${outdir}/${prefix}.log1
 # Merge reads
 pear -f ${outdir}/${prefix}.1.fastq.gz -r  ${outdir}/${prefix}.2.fastq.gz \
--o ${outdir}/${prefix}_pear -q 20 -t 100 -s 2
+-o ${outdir}/${prefix}_pear -q 20 -t 100 -s 2 > ${outdir}/${prefix}_pear.log
 # check if adapters still there
 seqkit -j 8 locate -d -p "${ADAPTER_FWD}" \
 ${outdir}/${prefix}_pear.assembled.fastq > ${outdir}/${prefix}.fwd
