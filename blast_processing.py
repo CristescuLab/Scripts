@@ -172,6 +172,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         if 'stitle' in df.columns:
             df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
             df.rename(columns={'lineage': 'stitle'}, inplace=True)
+        df.to_csv('df_before_split_acc_lineage.tsv', sep='\t', index=False)
         ndf = df.stitle.apply(split_acc_lineage)
         ndf = ndf.str.split(';', expand=True)
         # Assume 7 level taxonomy
