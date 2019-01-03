@@ -116,8 +116,12 @@ def get_lineages(fn, typeof=1, cpus=-1):
 
 def split_acc_lineage(x):
     # if it does not have a kingdom and there is no space before the ;
-    if x.startswith(';'):
-        return x
+    try:
+        if x.startswith(';'):
+            return x
+    except AttributeError:
+        print(x)
+        raise AttributeError
     # check with kigndom
     for i in kings:
         if x.find(i) != -1:
@@ -169,6 +173,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         # if not taxonomic info in stitle but staxid is present, run taxonkit
         lin = get_lineages(fn)
         df = df.merge(lin, on='staxid', how='left')
+        df.to_csv('df_before_split.tsv', sep='tsv', index=False)
         if 'stitle' in df.columns:
             df.rename(columns={'stitle': 'stitle_old'}, inplace=True)
             df.rename(columns={'lineage': 'stitle'}, inplace=True)
