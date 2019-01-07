@@ -332,7 +332,7 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
          query_coverage=None,length=None, output_filtered=False, min_reads=0,
          taxon_level='species', plot=False, tax_for_pattern=None, pattern=None,
          suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None,
-         same_blast=None, cpus=-1, maxqlen=None):
+         same_blast=None, cpus=-1, max_qlen=None):
     """
     Execute the code
 
@@ -356,7 +356,7 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     """
     filters = dict(zip('pident evalue qcovs qlen length, maxqlen'.split(),
                        [pident, evalue, query_coverage, query_len, length,
-                        maxqlen]))
+                        max_qlen]))
     filters = {k: v for k, v in filters.items() if v is not None}
     if output_filtered:
         output_filtered = prefix
