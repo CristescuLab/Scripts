@@ -160,11 +160,10 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
 
     by = list(set(df.columns).intersection(sortable))
     asc = [sorts[x] for x in by]
-
+    flipped = ['evalue', 'maxqlen']
     if filters:
-        query = ' & '.join(
-            ['(%s > %d)' % (k, v) if k != 'evalue' else '(%s < %e)' % (k, v)
-             for k, v in filters.items()])
+        query = ' & '.join(['(%s > %d)' % (k, v) if k not in flipped else
+                            '(%s < %e)' % (k, v) for k, v in filters.items()])
         df = df.query(query)
     if top_n_hits is not None:
         args = dict(by=by, ascending=asc)
@@ -329,7 +328,7 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
          query_coverage=None,length=None, output_filtered=False, min_reads=0,
          taxon_level='species', plot=False, tax_for_pattern=None, pattern=None,
          suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None,
-         same_blast=None, cpus=-1):
+         same_blast=None, cpus=-1, maxqlen=None):
     """
     Execute the code
 
@@ -351,8 +350,9 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     :param n_top: Number of blast top hits to retain
     :param use_coi: Use COI formatting to parse species
     """
-    filters = dict(zip('pident evalue qcovs qlen length'.split(),
-                       [pident, evalue, query_coverage, query_len, length]))
+    filters = dict(zip('pident evalue qcovs qlen length, maxqlen'.split(),
+                       [pident, evalue, query_coverage, query_len, length,
+                        maxqlen]))
     filters = {k: v for k, v in filters.items() if v is not None}
     if output_filtered:
         output_filtered = prefix
@@ -387,6 +387,8 @@ if __name__ == '__main__':
                     help='Minimum query coverage [default: %default]')
     opts.add_option('--qlen', '-Q', action='store', type=int, default=None,
                     help='Minimum query length [default: %default]')
+    opts.add_option('--maxqlen', '-R', action='store', type=int, default=None,
+                    help='Maximum query length [default: %default]')
     opts.add_option('--length', '-l', action='store', type=int, default=None,
                     help='Minimum alignment length [default: %default]')
     opts.add_option('--taxlevel', '-t', action='store', default='species',
@@ -428,9 +430,10 @@ if __name__ == '__main__':
 
     opt, arg = opts.parse_args()
     main(arg[0], arg[1], opt.colnames, pident=opt.pident, evalue=opt.eval,
-         query_coverage=opt.qcov, query_len=opt.qlen, length=opt.length,
-         output_filtered=opt.output_filtered, taxon_level=opt.taxlevel,
-         min_reads=opt.min_reads, plot=opt.plot, pattern=opt.pattern,
-         tax_for_pattern=opt.tax_for_pattern, n_top=opt.ntop,cpus=opt.cpus,
-         use_coi=opt.use_coi, suffix_for_plot=opt.suffix_for_plot,
-         report_dedup=opt.report_dedup, same_blast=opt.same_blast)
+         query_coverage=opt.qcov, query_len=opt.qlen, max_qlen=opt.maxqlen,
+         length=opt.length, output_filtered=opt.output_filtered,
+         taxon_level=opt.taxlevel, min_reads=opt.min_reads, plot=opt.plot,
+         pattern=opt.pattern, tax_for_pattern=opt.tax_for_pattern,
+         n_top=opt.ntop, cpus=opt.cpus, use_coi=opt.use_coi,
+         suffix_for_plot=opt.suffix_for_plot, report_dedup=opt.report_dedup,
+         same_blast=opt.same_blast)
