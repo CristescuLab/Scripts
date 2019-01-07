@@ -168,6 +168,8 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     if filters:
         query = ' & '.join(['(%s > %d)' % (k, v) if k not in flipped else
                             '(%s < %e)' % (k, v) for k, v in filters.items()])
+        if 'maxqlen' in query:
+            query = query.replace('maxqlen', 'qlen')
         df = df.query(query)
     if top_n_hits is not None:
         args = dict(by=by, ascending=asc)
@@ -354,7 +356,7 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
     :param n_top: Number of blast top hits to retain
     :param use_coi: Use COI formatting to parse species
     """
-    filters = dict(zip('pident evalue qcovs qlen length, maxqlen'.split(),
+    filters = dict(zip('pident evalue qcovs qlen length maxqlen'.split(),
                        [pident, evalue, query_coverage, query_len, length,
                         max_qlen]))
     filters = {k: v for k, v in filters.items() if v is not None}
