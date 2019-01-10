@@ -35,6 +35,9 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 import pandas as pd
 import numpy as np
+from dask import dataframe as dd
+import os
+import psutil
 import re
 from subprocess import run, PIPE
 from io import BytesIO
@@ -133,7 +136,6 @@ def split_acc_lineage(x):
         if x.find(i) != -1:
             return x[x.find(i):].strip()
 
-
 def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
                 coi=False, same_blast=None, cpus=-1, taxlevel='species',
                 names='qseqid sseqid pident evalue qcovs qlen length staxid '
@@ -148,19 +150,25 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
     :param fn: Filename of the blast to parse
     :return: Dataframe with the information
     """
-    # TODO: incldude option of custum headers
+    # check how big the file is
+    size = os.stat(fn).st_size
+    avail = psutil.virtual_memory().available
+    kwargs = dict(sep='\t', comment='#', encoding='utf-8',
+                  quoting=csv.QUOTE_NONE)
+    if size < avail:
+        module = pd
+    else:
+        module = dd
+        kwargs['blocksize'] = 5E6
     names = names.split()
     sortable = 'evalue pident qcovs qlen length'.split()
     orientation = [True, False, False, False, False]
     sorts = dict(zip(sortable, orientation))
     fnc = {True: get_sps_coi, False: get_sps}
     if same_blast is not None:
-        df = pd.read_table(same_blast, sep='\t', comment='#', encoding='utf-8',
-                           quoting=csv.QUOTE_NONE)
-
+        df = module.read_table(same_blast, **kwargs)
     else:
-        df = pd.read_table(fn, sep='\t', header=None, comment='#', names=names,
-                           quoting=csv.QUOTE_NONE, encoding='utf-8')
+        df = module.read_table(fn, names=names, **kwargs)
 
     by = list(set(df.columns).intersection(sortable))
     asc = [sorts[x] for x in by]
@@ -175,8 +183,8 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         args = dict(by=by, ascending=asc)
         df = df.sort_values(**args).groupby('qseqid').head(top_n_hits)
 
-    if ('staxid' in df.columns) and not pd.isnull(df.staxid).all() and (
-            same_blast is None):
+    if ('staxid' in df.columns) and not df.head(100).staxid.isnull().all()  \
+        and (same_blast is None):
         # if not taxonomic info in stitle but staxid is present, run taxonkit
         lin = get_lineages(fn, typeof=df.staxid)
         df = df.merge(lin, on='staxid', how='left')
@@ -191,7 +199,8 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         ndf.rename(columns=dict(zip(range(7), SIX)), inplace=True)
         # Join the dataframes
         df = pd.concat([df, ndf], axis=1)
-    elif (df.stitle.str.count(';').mean() > 3) and (same_blast is None):
+    elif (df.head(100).stitle.str.count(';').mean() > 3) and (
+            same_blast is None):
         # Lineage present, incorporate it
         ndf = df.stitle.apply(lambda x: x[x.find(' ')+1:].strip())
         ndf = ndf.str.split(';', expand=True)
@@ -201,7 +210,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
         df = pd.concat([df, ndf], axis=1)
     elif same_blast is None:
         # Assume that species is in the first two fields of stitle
-        df.loc[:, 'species'] = df.stitle.apply(fnc[coi])
+        df['species'] = df.stitle.apply(fnc[coi])
         if taxlevel != 'species':
             # avoid computation if
             lin = get_lineages('', typeof=df.species.tolist(), cpus=cpus)
@@ -215,8 +224,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
                   header=True)
         df.reindex(columns=by + [taxlevel]).groupby(taxlevel).describe(
         ).to_csv('%s_filtered_stats.tsv' % output_filtered, sep='\t')
-    print(df.head())
-    print(df.columns)
+
     return df
 
 
