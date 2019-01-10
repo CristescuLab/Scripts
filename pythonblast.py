@@ -21,10 +21,10 @@ E-mail: jose.hleaplozano@mcgill.ca
 """
 from io import BytesIO
 import pandas as pd
-from multiprocessing import Pool
 from joblib import Parallel, delayed
 from subprocess import run, PIPE, CalledProcessError
 import shelve
+
 
 def parse_fasta(filename, fn2=None):
     """
@@ -41,10 +41,10 @@ def parse_fasta(filename, fn2=None):
     else:
         fnc = open
         fn = filename[:filename.find('.')]
-    dic = shelve.open('%s.shelve' % fn)
+    db = '%s.shelve' % fn
+    dic = shelve.open(db)
     name = None
     seq = ''
-
     with fnc(filename) as F:
         for line in F:
             line = line.decode('utf-8') if isinstance(line, bytes) else line
@@ -57,15 +57,15 @@ def parse_fasta(filename, fn2=None):
                 seq += line
         if name not in dic:
             dic[name] = seq
-    return dic
+    return db
 
 
-def stdin_run(args, input, **kwargs):
+def stdin_run(args, inpt, **kwargs):
     file_name = None
-    input = input.encode('utf-8') if isinstance(input, str) else input
+    inpt = inpt.encode('utf-8') if isinstance(inpt, str) else input
     if isinstance(input, tuple):
-        file_name, input = input
-    exe = run(args, input=input, stderr=PIPE, stdout=PIPE, **kwargs)
+        file_name, inpt = inpt
+    exe = run(args, input=inpt, stderr=PIPE, stdout=PIPE, **kwargs)
     try:
         exe.check_returncode()
     except CalledProcessError:
@@ -73,13 +73,14 @@ def stdin_run(args, input, **kwargs):
     return exe.stdout, file_name
 
 
-def iter_fasta(fn):
-    fastas = parse_fasta(fn)
+def iter_fasta(fn, done=[]):
+    fastas = shelve.open(fn)
     for header, sequence in fastas.items():
+        if header not in done:
             yield '%s\n%s' % (header, sequence)
 
 
-def main(db, query, evalue, p_id,  max_target_seqs=50, cpus=-1,
+def main(db, query, evalue, p_id,  max_target_seqs=50, cpus=-1, out='hit.hits',
          outfmt_str='qseqid sseqid pident evalue qcovs qlen length staxid '
                     'stitle'):
     fasta = parse_fasta(query)
@@ -87,8 +88,32 @@ def main(db, query, evalue, p_id,  max_target_seqs=50, cpus=-1,
             '-perc_identity', p_id, '-outfmt', '"6 %s"' % outfmt_str,
             '-max_target_seqs', max_target_seqs]
     blasts = Parallel(n_jobs=cpus)(
-        delayed(stdin_run)(args, input) for input in iter_fasta(fasta))
+        delayed(stdin_run)(args, inp) for inp in iter_fasta(fasta))
     blasts = [pd.read_table(BytesIO(x), header=None, names=outfmt_str.split())
               for x in blasts]
     blasts = pd.concat(blasts)
-    blasts.to_csv()
+    blasts.to_csv(out, sep='\t', index=False, header=False)
+
+
+if __name__ == '__main__':
+    import optparse
+    opts = optparse.OptionParser(usage='%prog [options] fasta db')
+    opts.add_option('--output', '-o', default='hit.hits',
+                    help='Output filename [default: %default]')
+    opts.add_option('--pident', '-p', action='store', type=float, default=None,
+                    help='Minimum percent identity [default: %default]')
+    opts.add_option('--eval', '-e', action='store', type=float, default=None,
+                    help='Maximum evalue [default: %default]')
+    opts.add_option('--max_targets', '-m', action='store', type=int,
+                    default=50, help='Max target sequences [default: %default]'
+                    )
+    opts.add_option('--cpus', '-c', action='store', default=-1, type=int,
+                    help='number of cpus to use in the run [default: %default]'
+                    )
+    opts.add_option('--outfmt', '-f', action='store',
+                    default='qseqid sseqid pident evalue qcovs qlen length '
+                            'staxid stitle', help='outfmt [default: %default]'
+                    )
+    opt, arg = opts.parse_args()
+    main(arg[1], arg[0], opt.evalue, opt.pident, opt.max_targets, opt.cpus,
+         opt.output, opt.outfmt)

@@ -140,7 +140,7 @@ def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
                       'stitle'):
     """
     Parse a blast file, and filter it if required
-
+stitle'
     :param coi: Use COI fromat to parse species
     :param output_filtered: Output the filtered dataframe
     :param top_n_hits: Number of top blast hits to retain
@@ -430,8 +430,9 @@ if __name__ == '__main__':
                     )
     opts.add_option('--colnames', '-H', action='store',
                     default='qseqid sseqid pident evalue qcovs qlen length '
-                            'staxid stitle', help='number of cpus to use in '
-                                                  'the run [default: %default]'
+                            'staxid stitle',
+                    help='columns in blast file (equivalent to out_fmt without'
+                         ' the number) [default: %default]'
                     )
 
     opt, arg = opts.parse_args()

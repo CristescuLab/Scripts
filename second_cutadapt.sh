@@ -5,6 +5,8 @@
 # 3) usearch executable
 # 4) Forward primer
 # 5) Reverse primer
+# 6) primer name
+# 7) Number of threads for blast (ONLY ONE IF USING GNU PARALLEL!!)
 
 length_stats(){
 python - << EOF
@@ -42,7 +44,7 @@ blast(){
 # Out prefix (with path)
 blastn -db ${db} -query $1 -evalue 0.0001 -perc_identity 90 -outfmt \
 "6 qseqid sseqid pident evalue qcovs qlen length staxid stitle" \
--max_target_seqs 40 > ${2}_nt.hits && echo -e "\n#END" >> ${2}_nt.hits
+-max_target_seqs 40 -num_threads ${3} > ${2}_nt.hits && echo -e "\n#END" >> ${2}_nt.hits
 }
 # Define variables
 fileset=$1
@@ -63,13 +65,13 @@ outdir=${outdir}${primer_name}
 # run first cutadapt
 cutadapt -g "${ADAPTER_FWD}" -G "${ADAPTER_REV}" -a "${Adapter2rc}" \
 -A "${Adapter1rc}" -o ${outdir}/${prefix}.1.fastq.gz \
--p ${outdir}/${prefix}.2.fastq.gz -m 130 --match-read-wildcards -q 20 --trim-n \
+-p ${outdir}/${prefix}.2.fastq.gz -m 130 --match-read-wildcards -q 25 --trim-n \
 -n 2 --untrimmed-output ${outdir}/untrimmed.${prefix}.fastq \
 --untrimmed-paired-output ${outdir}/untrimmed.paired.${prefix}.fastq \
 ${fileset}_R1.fastq.gz ${fileset}_R2.fastq.gz > ${outdir}/${prefix}.log1
 # Merge reads
 pear -f ${outdir}/${prefix}.1.fastq.gz -r  ${outdir}/${prefix}.2.fastq.gz \
--o ${outdir}/${prefix}_pear -q 20 -t 100 -s 2 > ${outdir}/${prefix}_pear.log
+-o ${outdir}/${prefix}_pear -q 25 -t 100 -s 2 > ${outdir}/${prefix}_pear.log
 # check if adapters still there
 seqkit -j 8 locate -d -p "${ADAPTER_FWD}" \
 ${outdir}/${prefix}_pear.assembled.fastq > ${outdir}/${prefix}.fwd
@@ -93,4 +95,4 @@ seqkit stats ${outdir}/*${prefix}*.fa* > ${outdir}/${prefix}.stats
 # run a fastqc
 fastqc ${outdir}/${prefix}.3trimmed.fastq -o ${outdir}
 # run the blast
-blast ${outdir}/${prefix}.trimmed.derep.fasta ${outdir}/${prefix}
+blast ${outdir}/${prefix}.trimmed.derep.fasta ${outdir}/${prefix} ${7}
