@@ -10,10 +10,13 @@ def getsp(x):
     return res
 
 pattern = sys.argv[1]
+prefix = sys.argv[2]
 # patter is how to look for the number_unique_species. It should match the ls
 # unix command.
 gl = glob(pattern)
 summ = []
+order = ['Sample', 'Count unique reads',  'Sum of unique taxa',
+         'Species in sample']
 for fn in gl:
     sample = fn.split('_')[0]
     df = pd.read_table(fn, sep='\t')
@@ -23,4 +26,5 @@ for fn in gl:
     summ.append({'Sample': sample, 'Count unique reads': nreads,
                  'Sum of unique taxa': ntax, 'Species in sample': arr})
 
-pd.DataFrame(summ).to_csv('summary.tsv', sep='\t', index=False)
+pd.DataFrame(summ).to_csv('%s_summary.tsv' % prefix, sep='\t', index=False,
+                          columns=order)
