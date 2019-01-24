@@ -95,4 +95,4 @@ seqkit stats ${outdir}/*${prefix}*.fa* > ${outdir}/${prefix}.stats
 # run a fastqc
 fastqc ${outdir}/${prefix}.3trimmed.fastq -o ${outdir}
 # run the blast
-blast ${outdir}/${prefix}.trimmed.derep.fasta ${outdir}/${prefix} ${7}
+#blast ${outdir}/${prefix}.trimmed.derep.fasta ${outdir}/${prefix} ${7}

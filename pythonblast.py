@@ -2,7 +2,8 @@
 **pythonblast.py
 ** Copyright (C) 2018  Jose Sergio Hleap
 
-Python wrapper for multithreaded blast one sequence at a time
+Python wrapper for multithreaded blast one sequence at a time, it uses shelve,
+a persistent dictionary-like object, to avoid overusing memory as well.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -24,13 +25,17 @@ import pandas as pd
 from joblib import Parallel, delayed
 from subprocess import run, PIPE, CalledProcessError
 import shelve
+import dill
 
 
-def parse_fasta(filename, fn2=None):
+def parse_fasta(filename, fn2=None, rename=False):
     """
-    Parse a single fasta file
+    Parse a single fasta file and put it in a shelve DB
 
-    :param str filename: name of the fasta file
+    :param filename: fasta file
+    :param fn2: name of the shelve
+    :param rename: boolean of whether to append prefix to each sequence
+    :return: shelve db name
     """
     if isinstance(filename, shelve.DbfilenameShelf):
         Warning('THIS IS ALREADY A SHELF!!!')
@@ -40,7 +45,7 @@ def parse_fasta(filename, fn2=None):
         fn = 'shelve' if fn2 is None else fn2
     else:
         fnc = open
-        fn = filename[:filename.find('.')]
+        fn = filename[:filename.find('.fa')]
     db = '%s.shelve' % fn
     dic = shelve.open(db)
     name = None
@@ -77,6 +82,7 @@ def iter_fasta(fn, done=[]):
     fastas = shelve.open(fn)
     for header, sequence in fastas.items():
         if header not in done:
+            done.append(header)
             yield '%s\n%s' % (header, sequence)
 
 
@@ -93,6 +99,7 @@ def main(db, query, evalue, p_id,  max_target_seqs=50, cpus=-1, out='hit.hits',
               for x in blasts]
     blasts = pd.concat(blasts)
     blasts.to_csv(out, sep='\t', index=False, header=False)
+    return blasts
 
 
 if __name__ == '__main__':

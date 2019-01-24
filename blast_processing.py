@@ -35,9 +35,7 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 import pandas as pd
 import numpy as np
-from dask import dataframe as dd
 import os
-import psutil
 import re
 from subprocess import run, PIPE
 from io import BytesIO
@@ -151,24 +149,17 @@ stitle'
     :return: Dataframe with the information
     """
     # check how big the file is
-    size = os.stat(fn).st_size
-    avail = psutil.virtual_memory().available
     kwargs = dict(sep='\t', comment='#', encoding='utf-8',
                   quoting=csv.QUOTE_NONE)
-    if size < avail:
-        module = pd
-    else:
-        module = dd
-        kwargs['blocksize'] = 5E6
     names = names.split()
     sortable = 'evalue pident qcovs qlen length'.split()
     orientation = [True, False, False, False, False]
     sorts = dict(zip(sortable, orientation))
     fnc = {True: get_sps_coi, False: get_sps}
     if same_blast is not None:
-        df = module.read_table(same_blast, **kwargs)
+        df = pd.read_table(same_blast, **kwargs)
     else:
-        df = module.read_table(fn, names=names, **kwargs)
+        df = pd.read_table(fn, names=names, **kwargs)
 
     by = list(set(df.columns).intersection(sortable))
     asc = [sorts[x] for x in by]
