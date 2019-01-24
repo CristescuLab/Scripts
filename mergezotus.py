@@ -1,0 +1,153 @@
+"""
+This script takes a list of denoised fasta files and the zotus table per each
+and merge the zotus based on matches
+"""
+import sys
+from io import BytesIO
+import pandas as pd
+from joblib import Parallel, delayed
+from subprocess import run, PIPE, CalledProcessError
+import shelve
+import dill
+from glob import glob
+
+
+def parse_fasta(files, fn2):
+    """
+    Parse a fastas file and put it in a shelve DB and rename it with the prefix
+    of the filename. It will also write a combined fasta with the renamed
+    entries
+
+    :param files: list of fasta files
+    :param fn2: name of the shelve
+    :return: shelve db name
+    """
+    with shelve.open(fn2) as dic, open('%s.fasta' % fn2, 'w') as out:
+        for filename in files:
+            prefix = filename[:filename.find('.fa')]
+            name = None
+            seq = ''
+            with open(filename) as F:
+                for line in F:
+                    if line.startswith('>'):
+                        if name is not None:
+                            dic[name] = seq
+                            out.write('%s\n%s' % (name, seq))
+                        seq = ''
+                        name = '%s_%s' % (line.strip(), prefix)
+                    else:
+                        seq += line
+                if name not in dic:
+                    dic[name] = seq
+                    out.write('%s\n%s' % (name, seq))
+    return fn2
+
+
+def stdin_run(args, inpt, **kwargs):
+    """
+    Run programs in the shell
+
+    :param args: list of arguments to run
+    :param inpt: standard input to provide
+    :param kwargs: any key word arguments for subprocess.run
+    :return: stdout
+    """
+    inpt = inpt.encode('utf-8') if isinstance(inpt, str) else input
+    exe = run(args, input=inpt, stderr=PIPE, stdout=PIPE, **kwargs)
+    try:
+        exe.check_returncode()
+    except CalledProcessError:
+        raise Exception(exe.stdout, exe.stderr)
+    return exe.stdout
+
+
+def iter_fasta(fastas, done=[]):
+    """
+    Iterator over sequences in a fasta database (shelve)
+
+    :param fn: Name of the shleve database
+    :param done: list of excusions (useful if relauching)
+    """
+    for header, sequence in fastas.items():
+        if header not in done:
+            done.append(header)
+            yield '%s\n%s' % (header, sequence)
+
+
+def parallel_blast(db, query, evalue=1E-50, p_id=100, mts=50, cpus=-1,
+                   out='hit.hits'):
+    """
+    Run blast in parallel threads
+
+    :param db: Database to query
+    :param query: name of the shelve database where sequences are
+    :param evalue: evalue for blast run
+    :param p_id: Percent identity of blast run
+    :param mts: Max target sequences to retrive in the blast run
+    :param cpus: Number of cpus to use
+    :param out: Outfilename
+    :return: dataframe with blast
+    """
+    outfmt_str = 'qseqid sseqid pident evalue qcovs qlen length'
+    args = ['blastn', '-db', db, '-query', '-', '-evalue', str(evalue),
+            '-perc_identity', str(p_id), '-outfmt', "6 %s" % outfmt_str]
+    with shelve.open(query) as query:
+        blasts = Parallel(n_jobs=cpus, prefer='threads')(
+            delayed(stdin_run)(args, inp) for inp in iter_fasta(query))
+    blasts = [pd.read_table(BytesIO(x), header=None, names=outfmt_str.split())
+              for x in blasts]
+    blasts = pd.concat(blasts)
+    # filter blast so that qlen length are the same
+    blasts = blasts[blasts.qlen == blasts.length]
+    # filter out the blasts that are the same qseqid and sseqid
+    blasts = blasts[~(blasts.qseqid == blasts.sseqid)].reset_index()
+    blasts.to_csv(out, sep='\t', index=False, header=False)
+    return blasts
+
+
+def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt'):
+    # Get fastas in the current working directory
+    files = glob('*.%s' % fasta_suffix)
+    table_names = glob('*.%s' % zotu_table_suffix)
+    tables = {'%ss' % t[:t.find('tab')]: pd.read_table(t, sep='\t')
+              for t in table_names}
+    # parse fastas
+    fn2 = parse_fasta(files, '%s.shelve' % outprefix)
+    # create a single blast database with the combined fasta
+    to_db = '%s.fasta' % fn2
+    db = '%s.db' % outprefix
+    mkbl = ['makeblastdb', '-in', to_db, '-dbtype', 'nucl', '-parse_seqids',
+            '-hash_index', '-out', db]
+    run(mkbl)
+    # blast all the sequences against this database
+    blast = parallel_blast(db, fn2, out=outprefix)
+    # get all the zotus with name label
+    zotus = blast.qseqid.unique().tolist()
+    # group the blast by qseqid and sseq id
+    grpq = blast.groupby('qseqid')
+
+    # initialize a dataframe with the columns in the zotu tables
+    new_zotus = pd.DataFrame(columns=tables[list(tables.keys())[0]].columns)
+    count=0
+    done = []
+    for g in zotus:
+        if g not in done:
+            bl = g.split('_')
+            lane = bl[1]
+            otu = bl[0]
+            count+=1
+            done.append(g)
+            df = grpq.get_group(g)
+            matches = df.sseqid.unique().tolist()
+            done.extend(matches)
+            tabq = tables[lane]
+
+# new_zotus = new_zotus.append(tabq[tabq['#OTU ID'].isin([otu])] + tabq[tabq['#OTU ID'].isin([otu])])
+
+
+
+
+
+
+
+
