@@ -134,8 +134,10 @@ def rename_fasta(dbname, mapping, outfn):
         for header, sequence in fas.items():
             name = header.strip()[1:]
             otu = mapping[name]
-            newseq = '>%s\n%s' % (otu, sequence)
-            out.write(newseq)
+            if otu not in done:
+                newseq = '>%s\n%s' % (otu, sequence)
+                out.write(newseq)
+                done.append(otu)
 
 
 def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
@@ -185,7 +187,10 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
             new_zotus = new_zotus.append(d)
     rename_fasta(fn2, mapping, '%s.fas' % outprefix)
 
-
+if __name__ == '__main__':
+    # Usage:
+    # python mergezotus.py outprefix fasta_ext zotu_table_ext n_cpus
+    main(sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]))
 
 
 
