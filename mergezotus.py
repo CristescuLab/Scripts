@@ -179,7 +179,8 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     done = []
     mapping = {}
     # Go over each group, retrieved the hits and the respective zotus table
-    for g in tqdm(zotus, total=len(zotus), desc="Loping over groups"):
+    for g in zotus:#tqdm(zotus, total=len(zotus), desc="Loping over groups"):
+        print('Performing g')
         if g not in done:
             count += 1
             new_otu = 'OTU%d' % count
@@ -205,6 +206,8 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
             d.reset_index().loc[count-1, '#OTU ID'] = new_otu
             # append to the dataframe
             new_zotus = new_zotus.append(d)
+        else:
+            print(g, 'in', done)
     rename_fasta(fn2, mapping, '%s.fas' % outprefix)
 
 if __name__ == '__main__':
