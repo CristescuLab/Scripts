@@ -12,6 +12,8 @@ import dill
 from glob import glob
 from functools import reduce
 from itertools import cycle
+from tqdm import tqdm
+import os
 
 
 def parse_fasta(files, fn2):
@@ -30,7 +32,7 @@ def parse_fasta(files, fn2):
             name = None
             seq = ''
             with open(filename) as F:
-                for line in F:
+                for line in tqdm(F, desc="Parsing %s" % filename):
                     if line.startswith('>'):
                         if name is not None:
                             dic[name] = seq
@@ -70,14 +72,13 @@ def iter_fasta(fastas, done=[]):
     :param fn: Name of the shleve database
     :param done: list of excusions (useful if relauching)
     """
-    for header, sequence in fastas.items():
+    for header, sequence in tqdm(fastas.items(), desc="Yielding sequences"):
         if header not in done:
             done.append(header)
             yield '%s\n%s' % (header, sequence)
 
 
-def parallel_blast(db, query, evalue=1E-50, p_id=100, mts=50, cpus=-1,
-                   out='hit.hits'):
+def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
     """
     Run blast in parallel threads
 
@@ -103,7 +104,7 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, mts=50, cpus=-1,
     blasts = blasts[blasts.qlen == blasts.length]
     # filter out the blasts that are the same qseqid and sseqid
     blasts = blasts[~(blasts.qseqid == blasts.sseqid)].reset_index()
-    blasts.to_csv(out, sep='\t', index=False, header=False)
+    blasts.to_csv('%s.hits' % out, sep='\t', index=False, header=False)
     return blasts
 
 
@@ -147,15 +148,24 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     tables = {'%ss' % t[:t.find('tab')]: pd.read_table(t, sep='\t')
               for t in table_names}
     # parse fastas
-    fn2 = parse_fasta(files, '%s.shelve' % outprefix)
+    if not os.path.isfile('%s.shelve' % outprefix):
+        fn2 = parse_fasta(files, '%s.shelve' % outprefix)
+    else:
+        fn2 = '%s.shelve' % outprefix
     # create a single blast database with the combined fasta
     to_db = '%s.fasta' % fn2
     db = '%s.db' % outprefix
     mkbl = ['makeblastdb', '-in', to_db, '-dbtype', 'nucl', '-parse_seqids',
             '-hash_index', '-out', db]
-    run(mkbl)
+    if not os.path.isfile('%s.nhr' % db):
+        run(mkbl)
     # blast all the sequences against this database
-    blast = parallel_blast(db, fn2, out=outprefix)
+    if not os.path.isfile('%s.hits' % outprefix):
+        blast = parallel_blast(db, fn2, out=outprefix)
+    else:
+        names = 'qseqid sseqid pident evalue qcovs qlen length'.split()
+        blast = pd.read_table('%s.hits' % outprefix, header=None, sep='\t',
+                              names=names)
     # get all the zotus with name label
     zotus = blast.qseqid.unique().tolist()
     # group the blast by qseqid and sseq id
@@ -167,7 +177,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     done = []
     mapping = {}
     # Go over each group, retrieved the hits and the respective zotus table
-    for g in zotus:
+    for g in tqdm(zotus, total=len(zotus), desc="Loping over groups"):
         if g not in done:
             count += 1
             new_otu = 'OTU%d' % count
@@ -180,7 +190,11 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
             dfs = Parallel(n_jobs=cpus, prefer='threads')(
                 delayed(process_lane_and_otus)(match, tables) for match in
                 matches)
-            d = reduce(lambda x, y: x.add(y, fill_value=0), dfs)
+            try:
+                d = reduce(lambda x, y: x.add(y, fill_value=0), dfs)
+            except TypeError:
+                print(df)
+                raise
             # change the name of the OTU
             d.reset_index().loc[count-1, '#OTU ID'] = new_otu
             # append to the dataframe
