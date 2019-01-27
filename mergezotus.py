@@ -103,7 +103,7 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
     # filter blast so that qlen length are the same
     blasts = blasts[blasts.qlen == blasts.length]
     # filter out the blasts that are the same qseqid and sseqid
-    blasts = blasts[~(blasts.qseqid.isin(blasts.sseqid))].reset_index()
+    blasts = blasts[blasts.qseqid != blasts.sseqid].reset_index()
     blasts.to_csv('%s.hits' % out, sep='\t', index=False)
     return blasts
 
@@ -167,7 +167,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
         blast = parallel_blast(db, fn2, out=outprefix)
     else:
         blast = pd.read_table('%s.hits' % outprefix, sep='\t')
-        blast = blast[~(blast.qseqid.isin(blast.sseqid))].reset_index()
+        blast = blast[blast.qseqid != blast.sseqid].reset_index()
     # get all the zotus with name label
     zotus = blast.qseqid.unique().tolist()
     # group the blast by qseqid and sseq id
