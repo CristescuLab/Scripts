@@ -103,8 +103,8 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
     # filter blast so that qlen length are the same
     blasts = blasts[blasts.qlen == blasts.length]
     # filter out the blasts that are the same qseqid and sseqid
-    blasts = blasts[~(blasts.qseqid == blasts.sseqid)].reset_index()
-    blasts.to_csv('%s.hits' % out, sep='\t', index=False, header=False)
+    blasts = blasts[~(blasts.qseqid.isin(blasts.sseqid))].reset_index()
+    blasts.to_csv('%s.hits' % out, sep='\t', index=False)
     return blasts
 
 
@@ -120,7 +120,10 @@ def process_lane_and_otus(string, tables):
     lane = bl[1]
     otu = bl[0]
     tab = tables[lane]
-    return tab[tab['#OTU ID'].isin([otu])]
+    df = tab[tab['#OTU ID'].isin([otu])]
+    print(df)
+    assert not df.qseqid.isin(df.sseqid)
+    return df
 
 
 def rename_fasta(dbname, mapping, outfn):
@@ -163,9 +166,8 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     if not os.path.isfile('%s.hits' % outprefix):
         blast = parallel_blast(db, fn2, out=outprefix)
     else:
-        names = 'qseqid sseqid pident evalue qcovs qlen length'.split()
-        blast = pd.read_table('%s.hits' % outprefix, header=None, sep='\t',
-                              names=names)
+        blast = pd.read_table('%s.hits' % outprefix, sep='\t')
+        blast = blast[~(blast.qseqid.isin(blast.sseqid))].reset_index()
     # get all the zotus with name label
     zotus = blast.qseqid.unique().tolist()
     # group the blast by qseqid and sseq id
@@ -189,12 +191,16 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
             done.extend(matches)
             dfs = Parallel(n_jobs=cpus, prefer='threads')(
                 delayed(process_lane_and_otus)(match, tables) for match in
-                matches)
-            try:
-                d = reduce(lambda x, y: x.add(y, fill_value=0), dfs)
-            except TypeError:
-                print(df)
-                raise
+                tqdm(matches, desc="Matches in group %s" % g))
+            print('TYPE DFs', type(dfs))
+            d = dfs[0]
+            for i in range(1,len(dfs)):
+                d += dfs[i]
+            # try:
+            #     d = reduce(lambda x, y: x.add(y, fill_value=0), dfs)
+            # except TypeError:
+            #     print(df)
+            #     raise
             # change the name of the OTU
             d.reset_index().loc[count-1, '#OTU ID'] = new_otu
             # append to the dataframe
