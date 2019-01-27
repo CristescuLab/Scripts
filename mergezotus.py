@@ -121,8 +121,6 @@ def process_lane_and_otus(string, tables):
     otu = bl[0]
     tab = tables[lane]
     df = tab[tab['#OTU ID'].isin([otu])]
-    print(df)
-    assert not df.qseqid.isin(df.sseqid)
     return df
 
 
@@ -180,13 +178,15 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     mapping = {}
     # Go over each group, retrieved the hits and the respective zotus table
     for g in zotus:#tqdm(zotus, total=len(zotus), desc="Loping over groups"):
-        print('Performing g')
+        print('Performing', g)
         if g not in done:
             count += 1
             new_otu = 'OTU%d' % count
             done.append(g)
             df = grpq.get_group(g)
+            print('group\n', df)
             matches = df.sseqid.unique().tolist() + [g]
+            print('matches:', matches)
             # map the group and matches to the new otu
             mapping.update(dict(zip(matches, cycle([new_otu]))))
             done.extend(matches)
