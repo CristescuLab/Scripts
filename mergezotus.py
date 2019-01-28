@@ -103,7 +103,6 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
     # filter blast so that qlen length are the same
     blasts = blasts[blasts.qlen == blasts.length]
     # filter out the blasts that are the same qseqid and sseqid
-    blasts = blasts[blasts.qseqid != blasts.sseqid].reset_index()
     blasts.to_csv('%s.hits' % out, sep='\t', index=False)
     return blasts
 
@@ -124,7 +123,7 @@ def process_lane_and_otus(string, tables):
     return df
 
 
-def rename_fasta(dbname, mapping, outfn):
+def rename_fasta(dbname, mapping, outfn, count):
     """
     Loop over the shelve and write a consolidated deduplicated fasta
 
@@ -135,7 +134,12 @@ def rename_fasta(dbname, mapping, outfn):
     with shelve.open(dbname) as fas, open(outfn, 'w') as out:
         for header, sequence in fas.items():
             name = header.strip()[1:]
-            otu = mapping[name]
+            try:
+                otu = mapping[name]
+            except KeyError:
+                # is a singleton
+                count += 1
+                otu = 'OTU%d' % count
             if otu not in done:
                 newseq = '>%s\n%s' % (otu, sequence)
                 out.write(newseq)
@@ -165,12 +169,13 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
         blast = parallel_blast(db, fn2, out=outprefix)
     else:
         blast = pd.read_table('%s.hits' % outprefix, sep='\t')
-        blast = blast[blast.qseqid != blast.sseqid].reset_index()
+    blast = blast[blast.qseqid != blast.sseqid].reset_index(drop=True)
+    singles = blast[blast.qseqid == blast.sseqid].reset_index(drop=True)
+    singles = singles[~singles.qseqid.isin(blast.qseqid)]
     # get all the zotus with name label
-    zotus = blast.qseqid.unique().tolist()
+    zotus = blast.qseqid.unique().tolist() + singles.qseqid.unique().tolist()
     # group the blast by qseqid and sseq id
-    grpq = blast.groupby('qseqid')
-
+    grpq = blast.append(singles).groupby('qseqid')
     # initialize a dataframe with the columns in the zotu tables
     new_zotus = pd.DataFrame(columns=tables[list(tables.keys())[0]].columns)
     count=0
@@ -208,7 +213,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
             new_zotus = new_zotus.append(d)
         else:
             print(g, 'in', done)
-    rename_fasta(fn2, mapping, '%s.fas' % outprefix)
+    rename_fasta(fn2, mapping, '%s.fas' % outprefix, count)
 
 if __name__ == '__main__':
     # Usage:
