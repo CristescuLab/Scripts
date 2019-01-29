@@ -99,7 +99,7 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
             delayed(stdin_run)(args, inp) for inp in iter_fasta(query))
     blasts = [pd.read_table(BytesIO(x), header=None, names=outfmt_str.split())
               for x in blasts]
-    blasts = pd.concat(blasts)
+    blasts = pd.concat(blasts, sort=False)
     # filter blast so that qlen length are the same
     blasts = blasts[blasts.qlen == blasts.length]
     # filter out the blasts that are the same qseqid and sseqid
@@ -107,7 +107,7 @@ def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
     return blasts
 
 
-def process_lane_and_otus(string, tables):
+def process_lane_and_otus(string, tables, new_otu):
     """
     Get the apropriate row for a given otu
 
@@ -119,7 +119,12 @@ def process_lane_and_otus(string, tables):
     lane = bl[1]
     otu = bl[0]
     tab = tables[lane]
-    df = tab[tab['#OTU ID'].isin([otu])]
+    df = tab[tab.loc[:,'#OTU ID'] == otu]
+    df.loc[:, '#OTU ID'] = new_otu
+    if df.empty:
+        print(string, 'empty')
+        with open('Not_in_zotutab.txt', 'a') as outf:
+            outf.write('%s\n' % string)
     return df
 
 
@@ -130,20 +135,35 @@ def rename_fasta(dbname, mapping, outfn, count):
     :param dbname: selve database with the merge fastas
     :param mapping: dictionary with name of the sequence and the respective otu
     """
-    done=[]
-    with shelve.open(dbname) as fas, open(outfn, 'w') as out:
-        for header, sequence in fas.items():
-            name = header.strip()[1:]
-            try:
-                otu = mapping[name]
-            except KeyError:
-                # is a singleton
-                count += 1
-                otu = 'OTU%d' % count
-            if otu not in done:
-                newseq = '>%s\n%s' % (otu, sequence)
-                out.write(newseq)
-                done.append(otu)
+    if not os.path.isfile(outfn):
+        done = []
+        with shelve.open(dbname) as fas, open(outfn, 'w') as out:
+            for header, sequence in fas.items():
+                name = header.strip()[1:]
+                try:
+                    otu = mapping[name]
+                except KeyError:
+                    # is a singleton
+                    count += 1
+                    otu = 'OTU%d' % count
+                    print(name, 'is a singleton not in mapping. Assigning it '
+                                'to new OTU', otu)
+                if otu not in done:
+                    newseq = '>%s\n%s' % (otu, sequence)
+                    out.write(newseq)
+                    done.append(otu)
+
+
+def loop_zotus(g, count, tables, grpq):
+    new_otu = 'OTU%d' % count
+    df = grpq.get_group(g)
+    matches = df.sseqid.unique().tolist() + [g]
+    # map the group and matches to the new otu
+    mapping = dict(zip(matches, cycle([new_otu])))
+    dfs = [process_lane_and_otus(match, tables, new_otu) for match in matches]
+    # merge zotus
+    d = reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'), dfs)
+    return d, mapping
 
 
 def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
@@ -177,43 +197,50 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     # group the blast by qseqid and sseq id
     grpq = blast.append(singles).groupby('qseqid')
     # initialize a dataframe with the columns in the zotu tables
-    new_zotus = pd.DataFrame(columns=tables[list(tables.keys())[0]].columns)
+    #new_zotus = pd.DataFrame(columns=tables[list(tables.keys())[0]].columns)
     count=0
     done = []
+    dppend = done.append
     mapping = {}
+    mupdate = mapping.update
     # Go over each group, retrieved the hits and the respective zotus table
-    for g in zotus:#tqdm(zotus, total=len(zotus), desc="Loping over groups"):
-        print('Performing', g)
-        if g not in done:
-            count += 1
-            new_otu = 'OTU%d' % count
-            done.append(g)
-            df = grpq.get_group(g)
-            print('group\n', df)
-            matches = df.sseqid.unique().tolist() + [g]
-            print('matches:', matches)
-            # map the group and matches to the new otu
-            mapping.update(dict(zip(matches, cycle([new_otu]))))
-            done.extend(matches)
-            dfs = Parallel(n_jobs=cpus, prefer='threads')(
-                delayed(process_lane_and_otus)(match, tables) for match in
-                tqdm(matches, desc="Matches in group %s" % g))
-            print('TYPE DFs', type(dfs))
-            d = dfs[0]
-            for i in range(1,len(dfs)):
-                d += dfs[i]
-            # try:
-            #     d = reduce(lambda x, y: x.add(y, fill_value=0), dfs)
-            # except TypeError:
-            #     print(df)
-            #     raise
-            # change the name of the OTU
-            d.reset_index().loc[count-1, '#OTU ID'] = new_otu
-            # append to the dataframe
-            new_zotus = new_zotus.append(d)
-        else:
-            print(g, 'in', done)
+    new_zotus = []
+    nppend = new_zotus.append
+    par = Parallel(n_jobs=cpus, prefer='threads')(delayed(loop_zotus)(
+        g, count, tables, grpq) for count, g in tqdm(
+        enumerate(zotus), total=len(zotus), desc="Loping over groups"))
+    with open('par.dump', 'wb') as p:
+        dill.dump(par, p)
+    # for count, g in tqdm(enumerate(zotus), total=len(zotus),
+    #                      desc="Loping over groups"):
+    #     #if g not in done:
+    #     new_otu = 'OTU%d' % count
+    #     dppend(g)
+    #     df = grpq.get_group(g)
+    #
+    #     matches = df.sseqid.unique().tolist() + [g]
+    #     # map the group and matches to the new otu
+    #     mupdate(dict(zip(matches, cycle([new_otu]))))
+    #     done.extend(matches)
+    #     dfs = [process_lane_and_otus(match, tables, new_otu) for match in
+    #            matches]
+    #     try:
+    #         d = reduce(lambda x, y: x.merge(y, on='#OTU ID'), dfs)
+    #     except:
+    #         print(dfs)
+    #         with open('dump.dump', 'wb') as F:
+    #             dill.dump(dfs, F)
+    #         raise
+    #     # change the name of the OTU
+    #     assert d.shape[0] == 1
+    #     # append to the dataframe
+    #     nppend(d)
+    new_zotus, mapping = zip(*par)
+    mapping = {k: v for d in mapping for k, v in d.items()}
+    new_zotus = pd.concat(new_zotus, sort=True, join='outer',
+                          ignore_index=True).reset_index(drop=True).fillna(0)
     rename_fasta(fn2, mapping, '%s.fas' % outprefix, count)
+    new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
 
 if __name__ == '__main__':
     # Usage:
