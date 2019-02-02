@@ -243,8 +243,9 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     blast2 = blast2.reset_index(drop=True)
     grpq = blast2.groupby('qseqid')
     print(grpq.size())
-    assert grpq.size().mean() == 1
+    print(grpq.size().mean())
     new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
+    print(grpq.size()[grpq.size() > 1])
 
 if __name__ == '__main__':
     # Usage:
