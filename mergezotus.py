@@ -177,6 +177,7 @@ def loop_zotus(df, count, tables):
     d = reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'), dfs)
     return d, mapping
 
+
 def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     # Get fastas in the current working directory
     files = glob('*.%s' % fasta_suffix)
@@ -216,9 +217,13 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     #     g, count, tables, grpq) for count, g in tqdm(
     #     enumerate(zotus), total=len(zotus), desc="Loping over groups"))
     # Go over each group, retrieved the hits and the respective zotus table
-    par = Parallel(n_jobs=cpus, prefer='threads')(delayed(loop_zotus)(
-        df[1], count, tables) for count, df in tqdm(enumerate(grpq),
-                                                 desc="Loping over groups"))
+    if os.path.isfile('par.dump'):
+        with open('par.dump', 'rb') as dump:
+            par = dill.load(dump)
+    else:
+        par = Parallel(n_jobs=cpus, prefer='threads')(
+            delayed(loop_zotus)(df[1], count, tables) for count, df in
+            tqdm(enumerate(grpq), desc="Loping over groups"))
     with open('par.dump', 'wb') as p:
         dill.dump(par, p)
     new_zotus, mapping = zip(*par)
@@ -233,9 +238,10 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     db = '%s.db' % outprefix2
     mkbl = ['makeblastdb', '-in', outfas, '-dbtype', 'nucl', '-parse_seqids',
             '-hash_index', '-out', db]
+    run(mkbl)
     blast2 = parallel_blast(db, fn3, out=outprefix2)
     blast2 = blast2.reset_index(drop=True)
-    grpq = blast.groupby('qseqid')
+    grpq = blast2.groupby('qseqid')
     print(grpq.size())
     assert grpq.size().mean() == 1
     new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
