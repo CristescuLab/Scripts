@@ -26,7 +26,7 @@ echo "The forward primer sequence used is $Fprimer, and reverse primer $Rprimer"
 ## Paths to software
 flash=~/projects/def-mcristes/Software/FLASH-1.2.11/flash
 ## Make output directory if it doesn't already exist, change directory name for each region
-if [ ! -d ${outdir} ]; then
+if [[ ! -d ${outdir} ]]; then
   mkdir -p ${outdir}
 fi
 
