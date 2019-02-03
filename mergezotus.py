@@ -234,7 +234,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     # execute second pass
     new_zotus, mapping, fn3 = single_execution(outprefix2, [outfas], cpus,
                                                tables, second=True)
-    rename_fasta(fn3, mapping, outfas)
+    rename_fasta(fn3, mapping, 'final.fas')
     # Second blast to make sure not duplicates in result
 
     # fn3 = parse_fasta([outfas], '%s.shelve' % outprefix2)
