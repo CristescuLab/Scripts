@@ -231,7 +231,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     outfas = '%s.fas' % outprefix
     outprefix2 = '%s2' % outprefix
     tables.update({outprefix2: new_zotus})
-    rename_fasta(fn2, mapping, outfas, count)
+    rename_fasta(fn2, mapping, outfas)
     # execute second pass
     new_zotus, mapping, _ = single_execution(outprefix2, [outfas], cpus, tables)
 
