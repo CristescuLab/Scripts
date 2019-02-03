@@ -233,7 +233,7 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     rename_fasta(fn2, mapping, outfas)
     # execute second pass
     new_zotus, mapping, fn3 = single_execution(outprefix2, [outfas], cpus,
-                                               tables)
+                                               tables, second=True)
     rename_fasta(fn3, mapping, outfas)
     # Second blast to make sure not duplicates in result
 
@@ -256,9 +256,8 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     #     dill.dump(par, p)
     #new_zotus, mapping = zip(*par2)
     #mapping = {k: v for d in mapping for k, v in d.items()}
-    new_zotus = pd.concat(new_zotus, sort=True, join='outer',
-                          ignore_index=True).reset_index(drop=True).fillna(0)
-
+    #new_zotus = pd.concat(new_zotus, sort=True, join='outer',
+                          #ignore_index=True).reset_index(drop=True).fillna(0)
     new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
 
 
