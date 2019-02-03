@@ -78,7 +78,8 @@ def iter_fasta(fastas, done=[]):
             yield '%s\n%s' % (header, sequence)
 
 
-def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits'):
+def parallel_blast(db, query, evalue=1E-50, p_id=100, cpus=-1, out='hit.hits',
+                   check=False):
     """
     Run blast in parallel threads
 
@@ -128,7 +129,7 @@ def process_lane_and_otus(string, tables, new_otu):
     return df
 
 
-def rename_fasta(dbname, mapping, outfn, count):
+def rename_fasta(dbname, mapping, outfn):
     """
     Loop over the shelve and write a consolidated deduplicated fasta
 
@@ -137,6 +138,7 @@ def rename_fasta(dbname, mapping, outfn, count):
     """
     if not os.path.isfile(outfn):
         done = []
+        count = max([int(x[3:]) for x in set(mapping.values())])
         with shelve.open(dbname) as fas, open(outfn, 'w') as out:
             for header, sequence in fas.items():
                 name = header.strip()[1:]
@@ -153,18 +155,6 @@ def rename_fasta(dbname, mapping, outfn, count):
                     out.write(newseq)
                     done.append(otu)
 
-#
-# def loop_zotus(g, count, tables, grpq):
-#     new_otu = 'OTU%d' % count
-#     df = grpq.get_group(g)
-#     matches = df.sseqid.unique().tolist() + [g]
-#     # map the group and matches to the new otu
-#     mapping = dict(zip(matches, cycle([new_otu])))
-#     dfs = [process_lane_and_otus(match, tables, new_otu) for match in matches]
-#     # merge zotus
-#     d = reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'), dfs)
-#     return d, mapping
-
 
 def loop_zotus(df, count, tables):
     new_otu = 'OTU%d' % count
@@ -178,13 +168,21 @@ def loop_zotus(df, count, tables):
     return d, mapping
 
 
-def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
-    # Get fastas in the current working directory
-    files = glob('*.%s' % fasta_suffix)
-    table_names = glob('*.%s' % zotu_table_suffix)
-    tables = {'%ss' % t[:t.find('tab')]: pd.read_table(t, sep='\t')
-              for t in table_names}
+def loop_zotus2(df, count, tables):
+    new_otu = 'OTU%d' % count
+    matches = df.sseqid.unique().tolist()
+    # map the group and matches to the new otu
+    mapping = dict(zip(set(matches), cycle([new_otu])))
+    dfs = [process_lane_and_otus(match, tables, new_otu) for match in
+           set(matches)]
+    # merge zotus
+    d = reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'), dfs)
+    return d, mapping
+
+
+def single_execution(outprefix, files, cpus, tables, second=False):
     # parse fastas
+    fnc = loop_zotus2 if second else loop_zotus
     if not os.path.isfile('%s.shelve' % outprefix):
         fn2 = parse_fasta(files, '%s.shelve' % outprefix)
     else:
@@ -201,28 +199,17 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
         blast = parallel_blast(db, fn2, out=outprefix)
     else:
         blast = pd.read_table('%s.hits' % outprefix, sep='\t')
-    # blast = blast[blast.qseqid != blast.sseqid].reset_index(drop=True)
-    # singles = blast[blast.qseqid == blast.sseqid].reset_index(drop=True)
-    # singles = singles[~singles.qseqid.isin(blast.qseqid)]
-    # get all the zotus with name label
-    zotus = blast.qseqid.unique().tolist() # + singles.qseqid.unique().tolist()
     # group the blast by qseqid and sseq id
     blast = blast.reset_index(drop=True)
     grpq = blast.groupby('qseqid')
     print(grpq.size())
-    # grpq = blast.groupby('qseqid')
-    count=0
-    # # Go over each group, retrieved the hits and the respective zotus table
-    # par = Parallel(n_jobs=cpus, prefer='threads')(delayed(loop_zotus)(
-    #     g, count, tables, grpq) for count, g in tqdm(
-    #     enumerate(zotus), total=len(zotus), desc="Loping over groups"))
     # Go over each group, retrieved the hits and the respective zotus table
     if os.path.isfile('par.dump'):
         with open('par.dump', 'rb') as dump:
             par = dill.load(dump)
     else:
         par = Parallel(n_jobs=cpus, prefer='threads')(
-            delayed(loop_zotus)(df[1], count, tables) for count, df in
+            delayed(fnc)(df[1], count, tables) for count, df in
             tqdm(enumerate(grpq), desc="Loping over groups"))
     with open('par.dump', 'wb') as p:
         dill.dump(par, p)
@@ -230,10 +217,27 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     mapping = {k: v for d in mapping for k, v in d.items()}
     new_zotus = pd.concat(new_zotus, sort=True, join='outer',
                           ignore_index=True).reset_index(drop=True).fillna(0)
+    return new_zotus, mapping, fn2
+
+
+def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
+    # Get fastas in the current working directory
+    files = glob('*.%s' % fasta_suffix)
+    table_names = glob('*.%s' % zotu_table_suffix)
+    tables = {'%ss' % t[:t.find('tab')]: pd.read_table(t, sep='\t')
+              for t in table_names}
+    # execute first pass
+    new_zotus, mapping, fn2 = single_execution(outprefix, files, cpus, tables)
     outfas = '%s.fas' % outprefix
-    rename_fasta(fn2, mapping, outfas, count)
-    # Second blast to make sure not duplicates in result
     outprefix2 = '%s2' % outprefix
+    tables.update({outprefix2: new_zotus})
+    rename_fasta(fn2, mapping, outfas, count)
+    # execute second pass
+    new_zotus, mapping, _ = single_execution(outprefix2, [outfas], cpus, tables)
+
+
+    # Second blast to make sure not duplicates in result
+
     fn3 = parse_fasta([outfas], '%s.shelve' % outprefix2)
     db = '%s.db' % outprefix2
     mkbl = ['makeblastdb', '-in', outfas, '-dbtype', 'nucl', '-parse_seqids',
@@ -241,9 +245,21 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     run(mkbl)
     blast2 = parallel_blast(db, fn3, out=outprefix2)
     blast2 = blast2.reset_index(drop=True)
-    grpq = blast2.groupby('qseqid')
-    print(grpq.size())
-    print(grpq.size().mean())
+    grpq2 = blast2.groupby('qseqid')
+    if os.path.isfile('par.dump'):
+        with open('par.dump', 'rb') as dump:
+            par = dill.load(dump)
+    else:
+        par2 = Parallel(n_jobs=cpus, prefer='threads')(
+        delayed(loop_zotus)(df[1], count, tables) for count, df in
+        tqdm(enumerate(grpq2), desc="Loping over groups, second pass"))
+    with open('par.dump', 'wb') as p:
+        dill.dump(par, p)
+    new_zotus, mapping = zip(*par2)
+    mapping = {k: v for d in mapping for k, v in d.items()}
+    new_zotus = pd.concat(new_zotus, sort=True, join='outer',
+                          ignore_index=True).reset_index(drop=True).fillna(0)
+
     new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
     print(grpq.size()[grpq.size() > 1])
 
