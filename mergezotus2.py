@@ -169,7 +169,7 @@ def single_execution(outprefix, files, cpus, tables):
 
     new_zotus = pd.concat(zotus, sort=True, join='outer',ignore_index=True
                           ).reset_index(drop=True).fillna(0)
-    return new_zotus
+    return new_zotus, fasta
 
 
 def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
@@ -178,7 +178,10 @@ def main(outprefix, fasta_suffix='fasta', zotu_table_suffix='txt', cpus=-1):
     table_names = glob('*.%s' % zotu_table_suffix)
     tables = {'%ss' % t[:t.find('tab')]: pd.read_table(t, sep='\t')
               for t in table_names}
-    single_execution(outprefix, files, cpus, tables)
+    new_zotus, fasta = single_execution(outprefix, files, cpus, tables)
+    new_zotus.to_csv('%s.zotus' % outprefix, sep='\t', index=False)
+    with open('%s.fas' % outprefix, 'w') as f:
+        f.write(fasta)
 
 
 
