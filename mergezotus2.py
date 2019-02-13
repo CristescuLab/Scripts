@@ -164,8 +164,9 @@ def single_execution(outprefix, files, cpus, tables):
                set(matches)]
         zotus.append(reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'),
                             dfs))
-        with shelve.open(fn2) as fas:
+        with shelve.open(fn2) as fas, open('%s.mapping' % outprefix, 'w') as o:
             fasta += '>%s\n%s' % (notu, fas['>%s' % g])
+            o.write('%s\t%s\n' % (notu, '\t'.join(matches.astype(str))))
 
     new_zotus = pd.concat(zotus, sort=True, join='outer',ignore_index=True
                           ).reset_index(drop=True).fillna(0)

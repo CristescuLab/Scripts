@@ -160,7 +160,6 @@ stitle'
         df = pd.read_table(same_blast, **kwargs)
     else:
         df = pd.read_table(fn, names=names, **kwargs)
-
     by = list(set(df.columns).intersection(sortable))
     asc = [sorts[x] for x in by]
     flipped = ['evalue', 'maxqlen']
