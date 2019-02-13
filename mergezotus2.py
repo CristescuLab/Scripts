@@ -120,7 +120,7 @@ def process_lane_and_otus(string, tables, new_otu):
     lane = bl[1]
     otu = bl[0]
     tab = tables[lane]
-    df = tab[tab.loc[:,'#OTU ID'] == otu]
+    df = tab[tab.loc[:, '#OTU ID'] == otu]
     df.loc[:, '#OTU ID'] = new_otu
     if df.empty:
         print(string, 'empty')
@@ -154,19 +154,23 @@ def single_execution(outprefix, files, cpus, tables):
     # Go over each group, retrieved the hits and the respective zotus table
     fasta = ''
     zotus = []
-    for count, g in tqdm(enumerate(grps), desc="Loping over groups"):
-        notu = 'Otu%d' % count
-        boolean = (df.qseqid.str.contains(g) | df.sseqid.str.contains(g))
-        d = df[boolean]
-        df = df[~boolean]
-        matches = np.append(d.qseqid.unique(), d.sseqid.unique())
-        dfs = [process_lane_and_otus(match, tables, notu) for match in
-               set(matches)]
-        zotus.append(reduce(lambda x, y: x.merge(y, on='#OTU ID', how='outer'),
-                            dfs))
-        with shelve.open(fn2) as fas:
-            fasta += '>%s\n%s' % (notu, fas['>%s' % g])
-
+    done = []
+    count=0
+    for g in tqdm(grps, desc="Loping over groups", total=len(grps)):
+        if g not in done:
+            notu = 'Otu%d' % count
+            boolean = (df.qseqid.str.contains(g) | df.sseqid.str.contains(g))
+            d = df[boolean]
+            df = df[~boolean]
+            matches = d.loc[:, ['qseqid', 'sseqid']].unstack().unique()
+            dfs = [process_lane_and_otus(match, tables, notu) for match in
+                   set(matches)]
+            done += matches.tolist()
+            zotus.append(reduce(lambda x, y: x.merge(y, on='#OTU ID',
+                                                     how='outer'), dfs))
+            with shelve.open(fn2) as fas:
+                fasta += '>%s\n%s' % (notu, fas['>%s' % g])
+            count += 1
     new_zotus = pd.concat(zotus, sort=True, join='outer',ignore_index=True
                           ).reset_index(drop=True).fillna(0)
     return new_zotus, fasta
