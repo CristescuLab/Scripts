@@ -168,7 +168,8 @@ def single_execution(outprefix, files, cpus, tables):
             done += matches.tolist()
             zotus.append(reduce(lambda x, y: x.merge(y, on='#OTU ID',
                                                      how='outer'), dfs))
-            with shelve.open(fn2) as fas, open('%s.mapping' % outprefix,'w') as o:
+            mapping = '%s.mapping' % outprefix
+            with shelve.open(fn2) as fas, open(mapping,'a') as o:
                 fasta += '>%s\n%s' % (notu, fas['>%s' % g])
                 o.write('%s\t%s\n' % (notu, '\t'.join(matches.astype(str))))
             count += 1
