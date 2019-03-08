@@ -15,9 +15,9 @@ with open(sys.argv[2], 'w') as out:
         out.write('RANK %d\n--------\n' % i)
         col = tax.iloc[:, i]
         c = Counter(col)
-        line=''
+        line = ''
         for t, count in c.most_common():
-            if t == '':
+            if t == '' or t is None:
                 t='Unassigned'
             line += '%s: %d\n' % (t, count)
         out.write('%s\n\n' % line)
