@@ -40,7 +40,7 @@ def process_one(basta, otutab, out):
     result.to_csv(out, sep='\t', index=False)
 
 if __name__ == '__main__':
-    process_one(sys.arg[1], sys.arg[2], sys.arg[3])
+    process_one(sys.argv[1], sys.argv[2], sys.argv[3])
 
 
 
