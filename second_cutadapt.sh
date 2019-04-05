@@ -52,7 +52,7 @@ prefix=`echo ${fileset}|rev|cut -d'.' -f1|rev`
 outdir=${prefix}_output
 db=$2
 u=$3
-#COI: GGWACWGGWTGAACWGTWTAYCCYC AAACTTCAGGGTGACCAAAAAATCA
+#COI: GGWACWGGWTGAACWGTWTAYCCYC TAAACTTCAGGGTGACCAAAAAATCA
 #12S: GTCGGTAAAACTCGTGCCAGC CATAGTGGGGTATCTAATCCCAGTTTG
 ADAPTER_FWD=$4 #"GGWACWGGWTGAACWGTWTAYCCYCC"
 ADAPTER_REV=$5 #"TAAACTTCAGGGTGACCAAAAAATCA"
@@ -77,7 +77,7 @@ seqkit -j 8 locate -d -p "${ADAPTER_FWD}" \
 ${outdir}/${prefix}_pear.assembled.fastq > ${outdir}/${prefix}.fwd
 seqkit -j 8 locate -d -p "${ADAPTER_REV}" \
 ${outdir}/${prefix}_pear.assembled.fastq > ${outdir}/${prefix}.rev
-# cut the adapter is they remain
+# cut the adapter if they remain
 if [[ $(wc -l <${outdir}/${prefix}.fwd) -ge 2 || $(wc -l <${outdir}/${prefix}.rev) -ge 2 ]]; then
 cutadapt -a $Adapter2rc -m 100 -n 2 --too-short-output ${outdir}/${prefix}.short.fastq \
 -o ${outdir}/${prefix}.3trimmed.fastq ${outdir}/${prefix}_pear.assembled.fastq > ${outdir}/${prefix}.log2

@@ -3,7 +3,7 @@
 set -e
 
 #define reference genome path
-ref=/media/jshleap/ExtraDrive2/Playground/Mutation_accomulation/D_pulex_ref_PA42_clean.fasta
+ref=/media/jshleap/ExtraDrive2/Playground/Mutation_accomulation/D_pulex_ref_PA42_clean.fasta.masked
 
 
 filter_bam(){
@@ -42,7 +42,7 @@ vcftools --vcf SNPS.vcf --max-missing 1 --maf 0.05 --minDP 20.0 \
 --min-alleles 2 --max-alleles 2 --hwe 0.001 --out SNP_db
 }
 
-}bootsrap_vcf(){
+bootsrap_vcf(){
 # run un-calibrated data to vcf, filter and repeat
 # 1) number of repeats
 # 2) reference
@@ -53,46 +53,10 @@ GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
 
 filter_bam $2 $3
 for i in seq $1; do
-   ${java} ${GATK} IndexFeatureFile -F SNP_db.vcf
+   ${java} ${GATK} IndexFeatureFile -F SNP_db.recode.vcf
    ${java} ${GATK} BaseRecalibrator -R ${ref} -I ${tag}_markdup.bam \
    -O ${tag}_recal_data.table --known-sites SNP_db.vcf
 done
-
-
-
-
-
-
-
-
-
---genotyping_mode DISCOVERY \
--stand_emit_conf 10 -stand_call_conf 30 -o raw_variants.vcf
-
-
-
-
-
-java -jar GenomeAnalysisTK.jar -T VariantFiltration -R $2 -V raw_snps.vcf \
---filterExpression "QD < 5.0 || FS > 10.0 || MQ < 55.0 || MQRankSum < -6.0 || ReadPosRankSum < -3 || StrandOddsRatio > 2.5" \
---filterName "my_snp_filter" -o filtered_snps.vcf
-
-
-
-
-vcftools --gzvcf raw.vcf.gz --max-missing 0.5 --mac 3 --minQ 30 --recode \
---recode-INFO-all --out raw_variants_filtered.vcf
-vcftools --vcf raw_variants_filtered.vcf --minDP 10 --recode --recode-INFO-all \
---out raw_variants_filtered2.vcf
-vcftools --vcf raw_variants_filtered2.vcf --missing-indv
-mawk '$5 > 0.5' out.imiss | cut -f1 > lowDP.indv
-vcftools --vcf raw_variants_filtered2.vcf --remove lowDP.indv --recode \
---recode-INFO-all --out raw_variants_filtered.vcf
-vcftools --vcf  raw_variants_filtered.vcf --max-missing 0.95 --maf 0.05 \
---recode --recode-INFO-all --out raw_variants_filtered2.vcf --min-meanDP 20
-
-
-~/Programs/ErrorCount.sh
 
 }
 
