@@ -25,7 +25,7 @@ def mergethem(otu, basta):
             continue
         else:
             try:
-                assert row[-1] == 'Z%s' % row[1].lower()
+                assert row[-1] == row[1]
             except:
                 print(row)
                 raise
