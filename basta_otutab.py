@@ -11,7 +11,7 @@ def process_basta(df):
     taxonlevels = 'Kingdom Phylum Class Order Family Genus Species'.split()
     ndf = df.tax.str.split(';', expand=True).reindex(columns=range(7))
     ndf = ndf.rename(columns=dict(zip(range(7),taxonlevels)))
-    #ndf['#OTU ID'] = df.Zotu.apply(mod_zotu)
+    ndf['#OTU ID'] = df.Zotu
     ndf['Zotu'] = df.Zotu
     return ndf
 
@@ -35,7 +35,7 @@ def process_one(basta, otutab, out):
     basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
                         header=None)
     basta = process_basta(basta)
-    otutab = pd.read_table(otutab, sep='\t')
+    otutab = pd.read_csv(otutab, sep='\t')
     result = mergethem(otutab, basta)
     result.to_csv(out, sep='\t', index=False)
 
