@@ -1,7 +1,8 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-
-plt.style.use('ggplot')
+import sys
+# import matplotlib.pyplot as plt
+#
+# plt.style.use('ggplot')
 
 def mod_zotu(x):
     return x[1:].capitalize()
@@ -30,27 +31,28 @@ def mergethem(otu, basta):
                 raise
     return m.reindex(columns=cols)
 
-basta90 = pd.read_table('COIzotus_8_90_95.basta', sep='\t', names=[
-    'Zotu', 'tax', 'best'], header=None)
-basta90 = process_basta(basta90)
-basta97 = pd.read_table('COIzotus_8_97_95.basta', sep='\t', names=[
-    'Zotu', 'tax', 'best'], header=None)
-basta97 = process_basta(basta97)
-otutab = pd.read_table('allCOI.otutab.txt', sep='\t')
+def process_one(basta, otutab, out):
+    basta = pd.read_table(basta, sep='\t', names=['Zotu', 'tax', 'best'], header=None
+                       )
+    basta = process_basta(basta)
+    otutab = pd.read_table(otutab, sep='\t')
+    result = mergethem(otutab, basta)
+    result.to_csv(out, sep='\t', index=False)
 
-res90 = mergethem(otutab, basta90)
-res90.to_csv('basta90_mergedotutab.tsv', sep='\t', index=False)
-res97 = mergethem(otutab, basta97)
-res97.to_csv('basta97_mergedotutab.tsv', sep='\t', index=False)
+if __name__ == '__main__':
+    process_one(sys.arg[1], sys.arg[2], sys.arg[3])
 
-plotcols = 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Zotu,#OTU ID' \
-           ''.split(',')
-a = res90.reindex(columns=plotcols).count()
-b = res97.reindex(columns=plotcols).count()
-c = pd.concat([a,b], axis=1).rename(columns={0:90, 1:97})
-c.rename(columns={'Zotu': 'Any Basta', '#OTU ID': 'OTU'})
-plt.figure()
-c.plot.bar()
-plt.ylabel('Number of reads with assignment')
-plt.tight_layout()
-plt.savefig('test.pdf')
+
+
+#res97.to_csv('basta97_mergedotutab.tsv', sep='\t', index=False)
+# plotcols = 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Zotu,#OTU ID' \
+#                ''.split(',')
+# a = res90.reindex(columns=plotcols).count()
+# b = res97.reindex(columns=plotcols).count()
+# c = pd.concat([a,b], axis=1).rename(columns={0:90, 1:97})
+# c.rename(columns={'Zotu': 'Any Basta', '#OTU ID': 'OTU'})
+# plt.figure()
+# c.plot.bar()
+# plt.ylabel('Number of reads with assignment')
+# plt.tight_layout()
+# plt.savefig('test.pdf')
