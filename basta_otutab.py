@@ -4,8 +4,10 @@ import sys
 #
 # plt.style.use('ggplot')
 
+
 def mod_zotu(x):
     return x[1:].capitalize()
+
 
 def process_basta(df):
     taxonlevels = 'Kingdom Phylum Class Order Family Genus Species'.split()
@@ -14,6 +16,7 @@ def process_basta(df):
     ndf['#OTU ID'] = df.Zotu
     ndf['Zotu'] = df.Zotu
     return ndf
+
 
 def mergethem(otu, basta):
     cols = basta.columns.tolist()
@@ -30,6 +33,7 @@ def mergethem(otu, basta):
                 print(row)
                 raise
     return m.reindex(columns=cols)
+
 
 def process_one(basta, otutab, out):
     basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
