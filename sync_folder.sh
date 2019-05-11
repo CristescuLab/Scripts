@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-## USAGE: bash sync_software.sh <path2folder> <source_server> <target_server>
+## USAGE: bash sync_software.sh <path2folder> <target_server>
 # You need to be IN the folder you want to sync
 path2folder=$1
 target_server=$2
