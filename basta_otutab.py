@@ -1,4 +1,6 @@
+from subprocess import run
 import pandas as pd
+import argparse
 import sys
 # import matplotlib.pyplot as plt
 #
@@ -35,16 +37,49 @@ def mergethem(otu, basta):
     return m.reindex(columns=cols)
 
 
-def process_one(basta, otutab, out):
-    basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
-                        header=None)
-    basta = process_basta(basta)
-    otutab = pd.read_csv(otutab, sep='\t')
-    result = mergethem(otutab, basta)
-    result.to_csv(out, sep='\t', index=False)
+def run_basta(blast, outpref, pid, qcov=95, qcol=5):
+    awk = "<(awk ' $%d > %f ' %s)" % (qcol, qcov, blast)
+    args = ['basta', 'sequence', awk, '%s.out' % outpref,  'gb', '-v',
+            '%s.verbose' % outpref, '-e',  '0.0001', '-i', str(pid), '-b', 'T',
+            '-x', 'T', '-c', 'config.txt', '-m', '1']
+    st = run(' '.join(args), shell=True, executable='/bin/bash')
+    return '%s.out' % outpref
+
+def process_one(args):
+    basta =run_basta(args.blast, args.outprefix, args.pid, qcov=args.qcov,
+                     qcol=args.qcol)
+    if not args.basta_only:
+        basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
+                            header=None)
+        basta = process_basta(basta)
+        otutab = pd.read_csv(args.otutab, sep='\t')
+        result = mergethem(otutab, basta)
+        result.to_csv('%s_mergedotutab.tsv' % args.outprefix, sep='\t',
+                      index=False)
 
 if __name__ == '__main__':
-    process_one(sys.argv[1], sys.argv[2], sys.argv[3])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('blast', help='blast file with format 6')
+    parser.add_argument('otutab', help='File with the otu table to merge')
+    parser.add_argument('-c', '--config', help='File with the mapping of '
+                                               'positions and  headers for ' 
+                                               'basta', default='config.txt')
+
+    parser.add_argument('-p', '--pid', help='percent identity to pass to basta',
+                        type=int)
+    parser.add_argument('-b', '--basta_only',
+                        help='Run basta without merging with OTU table',
+                        default=False, action='store_true')
+    parser.add_argument('-o', '--outprefix', help='Prefix for outputs')
+    parser.add_argument('-q', '--qcov', help='Minumum query coverage',
+                        default=95, type=float)
+    parser.add_argument('-r', '--qcol', help='column in blast with query cov',
+                        default=5, type=int )
+
+
+
+    args = parser.parse_args()
+    process_one(args)
 
 
 
