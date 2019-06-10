@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Arguments
 # 1) fileset (prefix of R1 and R2)
-# 2) database
-# 3) usearch executable
-# 4) Forward primer
-# 5) Reverse primer
-# 6) primer name
-# 7) Number of threads for blast (ONLY ONE IF USING GNU PARALLEL!!)
+# 2) preferred prefix
+# 3) database
+# 4) usearch executable
+# 5) Forward primer
+# 6) Reverse primer
+# 7) primer name
+# 8) Number of threads for blast (ONLY ONE IF USING GNU PARALLEL!!)
 
 length_stats(){
 python - << EOF
@@ -48,15 +49,16 @@ blastn -db ${db} -query $1 -evalue 0.0001 -perc_identity 90 -outfmt \
 }
 # Define variables
 fileset=$1
-prefix=`echo ${fileset}|rev|cut -d'.' -f1|rev`
+prefix=$2
+#`echo ${fileset}|rev|cut -d'.' -f1|rev`
 outdir=${prefix}_output
-db=$2
-u=$3
+db=$3
+u=$4
 #COI: GGWACWGGWTGAACWGTWTAYCCYC TAAACTTCAGGGTGACCAAAAAATCA
 #12S: GTCGGTAAAACTCGTGCCAGC CATAGTGGGGTATCTAATCCCAGTTTG
-ADAPTER_FWD=$4 #"GGWACWGGWTGAACWGTWTAYCCYCC"
-ADAPTER_REV=$5 #"TAAACTTCAGGGTGACCAAAAAATCA"
-primer_name=_$6
+ADAPTER_FWD=$5 #"GGWACWGGWTGAACWGTWTAYCCYCC"
+ADAPTER_REV=$6 #"TAAACTTCAGGGTGACCAAAAAATCA"
+primer_name=_$7
 Adapter1rc=`echo $ADAPTER_FWD | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
 Adapter2rc=`echo $ADAPTER_REV | tr 'ACGTYRSWKMBDHV' 'TGCARYSWMKVHDB' | rev`
 # create output folder

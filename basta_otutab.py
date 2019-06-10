@@ -1,7 +1,7 @@
 from subprocess import run
 import pandas as pd
 import argparse
-import sys
+import os
 # import matplotlib.pyplot as plt
 #
 # plt.style.use('ggplot')
@@ -37,25 +37,32 @@ def mergethem(otu, basta):
     return m.reindex(columns=cols)
 
 
-def run_basta(blast, outpref, pid, qcov=95, qcol=5):
+def run_basta(blast, outpref, pid, qcov=95, qcol=5, config='config.txt'):
     awk = "<(awk ' $%d > %f ' %s)" % (qcol, qcov, blast)
     args = ['basta', 'sequence', awk, '%s.out' % outpref,  'gb', '-v',
             '%s.verbose' % outpref, '-e',  '0.0001', '-i', str(pid), '-b', 'T',
-            '-x', 'T', '-c', 'config.txt', '-m', '1']
+            '-x', 'T', '-c', config, '-m', '1']
     st = run(' '.join(args), shell=True, executable='/bin/bash')
     return '%s.out' % outpref
 
+
 def process_one(args):
-    basta =run_basta(args.blast, args.outprefix, args.pid, qcov=args.qcov,
-                     qcol=args.qcol)
+    outpref = '%s_p%d_q%d' % (args.outprefix, args.pid, args.qcov)
+    if not os.path.isfile(args.config):
+        with open(args.config, 'w') as c:
+            c.write("query_id\t0\nsubject_id\t1\n")
+            c.write("align_length\t6\nevalue\t3\npident\t2")
+    basta = run_basta(args.blast, outpref, args.pid, qcov=args.qcov,
+                      qcol=args.qcol)
     if not args.basta_only:
         basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
                             header=None)
         basta = process_basta(basta)
         otutab = pd.read_csv(args.otutab, sep='\t')
         result = mergethem(otutab, basta)
-        result.to_csv('%s_mergedotutab.tsv' % args.outprefix, sep='\t',
+        result.to_csv('%s_mergedotutab.tsv' % outpref, sep='\t',
                       index=False)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -64,7 +71,6 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', help='File with the mapping of '
                                                'positions and  headers for ' 
                                                'basta', default='config.txt')
-
     parser.add_argument('-p', '--pid', help='percent identity to pass to basta',
                         type=int)
     parser.add_argument('-b', '--basta_only',
