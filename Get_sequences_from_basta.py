@@ -2,7 +2,7 @@ from tqdm import tqdm
 import pandas as pd
 import shelve
 import sys
-
+import os
 
 def parse_fasta(filename):
     """
@@ -32,25 +32,31 @@ def parse_fasta(filename):
     return fn2
 
 
-def main(filtered, fasta, taxa):
-    taxa = taxa.lower()
-    prefix = fasta[:fasta.rfind('.fasta')]
+def main(basta, fasta, otutable,  outdir):
+    os.mkdir(outdir)
+    df = pd.read_csv(otutable, sep='\t')
+    samples = df.columns[1:]
+    basta = pd.read_csv(basta, sep='\t', header=None)
+    basta['assigned'] = basta[1].apply(
+        lambda x: x.strip().strip(';').split(';')[-1])
     fas = parse_fasta(fasta)
-    df = pd.read_csv(filtered, sep='\t')
     with shelve.open(fas) as dic:
-        seqs = [x[1:] for x in list(dic.keys())]
-        sdf = df[df.qseqid.isin(seqs)]
-        for name, d in tqdm(sdf.groupby(taxa), desc="Getting %s" % taxa):
-            if d.empty:
-                continue
-            with open('%s_%s.fas' % (prefix, name.replace(' ', '_')), 'w'
-                       ) as out:
-                q = d.qseqid.unique().tolist()
-                for seq in q:
-                    out.write('>%s\n%s' % (seq, dic['>%s' % seq]))
+        for col in samples:
+            seqs = df[df[col] !=0 ]['#OTU ID']
+            sdf = df[df.qseqid.isin(seqs)]
+            for name, d in tqdm(sdf.groupby('assigned')):
+                path = os.path.join(outdir, col, name.replace(' ', '_'))
+                if d.empty:
+                    continue
+                with open('%s.fas' % path, 'w') as out:
+                    q = d['#OTU ID'].unique().tolist()
+                    for seq in q:
+                        out.write('>%s\n%s' % (seq, dic['>%s' % seq]))
 
 
 if __name__ == '__main__':
     # Usage:
-    # python get_sequences.py filtered_blast fasta taxa
+    # python Get_sequences_from_basta.py bastaout allfasta otutable outdir
     main(sys.argv[1], sys.argv[2], sys.argv[3])
+
+
