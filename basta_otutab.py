@@ -52,8 +52,11 @@ def process_one(args):
         with open(args.config, 'w') as c:
             c.write("query_id\t0\nsubject_id\t1\n")
             c.write("align_length\t6\nevalue\t3\npident\t2")
-    basta = run_basta(args.blast, outpref, args.pid, qcov=args.qcov,
-                      qcol=args.qcol)
+    if args.merge_only is None:
+        basta = run_basta(args.blast, outpref, args.pid, qcov=args.qcov,
+                          qcol=args.qcol)
+    else:
+        basta = args.merge_only
     if not args.basta_only:
         basta = pd.read_csv(basta, sep='\t', names=['Zotu', 'tax', 'best'],
                             header=None)
@@ -80,7 +83,10 @@ if __name__ == '__main__':
     parser.add_argument('-q', '--qcov', help='Minumum query coverage',
                         default=95, type=float)
     parser.add_argument('-r', '--qcol', help='column in blast with query cov',
-                        default=5, type=int )
+                        default=5, type=int)
+    parser.add_argument('-m', '--merge_only',
+                        help='Basta file to be  merged with OTU table. This '
+                             'turns off basta execution', default=None)
 
 
 
