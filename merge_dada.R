@@ -10,7 +10,7 @@ suppressPackageStartupMessages(library(phylotools))
 
 option_list <- list(
 make_option(c("-p", "--pattern"), type="character", default=NULL,
-help="Pattern where to the dechimerixed (nochimaeras.rda) files"),
+help="Pattern where to the dechimerized (nochimaeras.rda) files"),
 make_option(c("-o", "--outprefix"), type="character", default='all_samples',
 help="Prefix to ouputs")
 )
@@ -38,7 +38,8 @@ seqnames <- get.fasta.name(paste0(prefix, '.fasta'), clean_name = FALSE)
 otutab <- merged_table
 colnames(otutab) <- seqnames
 write.table(otutab, file=paste0(prefix, '_ASV_table.tsv'), sep='\t')
-dir.create('ASVs_MERGED')
+dn <- paste0(prefix,'_ASVs_MERGED')
+dir.create(dn)
 for(sample in row.names(merged_table)){
     print(sample)
     st <- merged_table[sample,]
@@ -47,7 +48,7 @@ for(sample in row.names(merged_table)){
     if (length(st) != 0){
         seqs <- DNAStringSet(getSequences(st))
         names(seqs) <- seqnames[boolean]
-        outfn <- file.path("./ASVs_MERGED", paste0(sample,'_ASV.fasta'))
+        outfn <- file.path(dn, paste0(sample,'_ASV.fasta'))
         writeXStringSet(seqs, outfn)
     }
 }
