@@ -3,8 +3,8 @@
 set -e
 
 #define reference genome path
-ref=/media/jshleap/ExtraDrive2/Playground/Mutation_accomulation/D_pulex_ref_PA42_clean.fasta.masked
-
+ref=/media/jshleap/ExtraDrive2/Playground/Mutation_accomulation/D_pulex_ref_PA42_clean.masked.fasta
+java='java -jar -Xmx10g'
 
 filter_bam(){
 # 1. ref
@@ -16,9 +16,9 @@ picard=~/Programs/picard/picard.jar
 if [[ ! -f ${2}.bai ]]; then
     samtools index -@ 28 $2
 fi
-
-${java} ${GATK} HaplotypeCaller -R $1 -I $2 -ERC GVCF -O raw_variants.vcf
---standard-min-confidence-threshold-for-calling 30 \
+lab=${2%%_markdup.bam}
+${java} ${GATK} HaplotypeCaller -R $1 -I $2 -ERC GVCF \
+-O ${lab}_raw_variants.vcf --standard-min-confidence-threshold-for-calling 30 \
 -A AlleleFraction -A BaseQuality -A BaseQualityRankSumTest -A Coverage \
 -A DepthPerAlleleBySample -A DepthPerSampleHC -A LikelihoodRankSumTest \
 -A MappingQuality -A MappingQualityRankSumTest -A ExcessHet -A FisherStrand \
@@ -50,48 +50,82 @@ bootsrap_vcf(){
 # first call
 java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
-
 filter_bam $2 $3
-for i in seq $1; do
+for i in `seq $1`
+do
+   echo "Running iteration $i in bootstrap"
    ${java} ${GATK} IndexFeatureFile -F SNP_db.recode.vcf
    ${java} ${GATK} BaseRecalibrator -R ${ref} -I ${tag}_markdup.bam \
    -O ${tag}_recal_data.table --known-sites SNP_db.vcf
+   echo ${i} > bootdone
 done
-
 }
 
-# index reference
-bwa index -a bwtsw ${ref}
-# create dictionary
-picard=~/Programs/picard/picard.jar
-${java} ${picard} CreateSequenceDictionary R=$2 O=${2%%fasta}.dict
-for i in *.1.fastq.gz; do
+prepare_n_boot(){
     # get name of pair
-    tag=${i%%.1.fastq.gz}
+    tag=${1%%.1.fastq.gz}
     # map files to reference and ignore unmapped reads (this is to avoid possible contaminant sequences)
-    bwa mem -t 28 -aM -R "@RG\tID:${tag}\tSM:${tag}\tPL:Illumina" ${ref} \
-    ${tag}.1.fastq.gz ${tag}.2.fastq.gz | samtools view -b -h -F 4 - > ${tag}_mapped.bam
+    if [[ ! -f  ${tag}_mapped.bam ]]
+    then
+        bwa mem -t 28 -aM -R "@RG\tID:${tag}\tSM:${tag}\tPL:Illumina" ${ref} \
+        ${tag}.1.fastq.gz ${tag}.2.fastq.gz | samtools view -b -h \
+        -F 4 - > ${tag}_mapped.bam
+    fi
     # Sort mapped files
-    java -jar ~/Programs/picard/picard.jar SortSam I=${tag}_mapped.bam \
-    O=${tag}_sorted.bam SORT_ORDER=coordinate
+    if [[ ! -f ${tag}_sorted.bam ]]
+    then
+        java -jar ~/Programs/picard/picard.jar SortSam I=${tag}_mapped.bam \
+        O=${tag}_sorted.bam SORT_ORDER=coordinate
+    fi
     # Mark duplicates and remove them
-    java -jar ~/Programs/picard/picard.jar MarkDuplicates I=${tag}_sorted.bam \
-    O=${tag}_markdup.bam M=${tag}_dup_metrics.txt \
-    REMOVE_SEQUENCING_DUPLICATES=true ASSUME_SORTED=true
+    if [[ ! -f ${tag}_markdup.bam ]]
+    then
+        java -jar ~/Programs/picard/picard.jar MarkDuplicates \
+        I=${tag}_sorted.bam O=${tag}_markdup.bam M=${tag}_dup_metrics.txt \
+        REMOVE_SEQUENCING_DUPLICATES=true ASSUME_SORTED=true
+    fi
     # Get some summary stats
-    java -jar ~/Programs/picard/picard.jar CollectAlignmentSummaryMetrics \
-    R=${ref} I=${tag}_markdup.bam OUTPUT=C001-88.stats
+    if [[ ! -f ${tag}.stats ]]
+    then
+        java -jar ~/Programs/picard/picard.jar CollectAlignmentSummaryMetrics \
+        R=${ref} I=${tag}_markdup.bam OUTPUT=${tag}.stats
+    fi
     # get depth at each position
     samtools depth ${tag}_markdup.bam > ${tag}.depth
     samtools index ${tag}_markdup.bam
     # boostrap
+    if [[ ! -f bootdone ]]
+    then
+        bootsrap_vcf 100 ${ref} ${tag}_markdup.bam
+    else
+        n=`cat bootdone`
+        n=$(( 100 - n ))
+        bootsrap_vcf ${n} ${ref} ${tag}_markdup.bam
+    fi
+}
+
+java='java -jar -Xmx10g'
+# index reference
+if [[ ! -f ${ref}.bwt ]]
+then
+    bwa index -a bwtsw ${ref}
+fi
+# create dictionary
+picard=~/Programs/picard/picard.jar
+if [[ ! -f ${ref%%.fasta}.dict ]]
+then
+    ${java} ${picard} CreateSequenceDictionary R=${ref} O=${ref%%.fasta}.dict
+fi
+
+#export -f prepare_n_boot
+#parallel --will-cite --joblog boot.log --wd . -j 28 --memfree 40G \
+#prepare_n_boot {} ${ref} ::: *.1.fastq.gz
 
 
+for i in *.1.fastq.gz
+do
+    prepare_n_boot ${i} ${ref}
 done
-
-
-
-
 
 # compute expected heterocigocity
 angsd -bam <(ls *_markdup.bam) -doSaf 1 -anc ${ref} -GL 1 -P 24 -out out
@@ -105,18 +139,30 @@ EOF`
 
 
 # Merge files
-finp=`ls -1 *_markdup.bam| paste -sd "," -| sed 's/,/ I=/g'
-inp=`echo " I=${finp}"`
-java -jar ~/Programs/picard/picard.jar MergeSamFiles ${inp} O=output_merged_files.bam USE_THREADING=true
-
+if [[ ! -f output_merged_files.bam ]]
+then
+    finp=`ls -1 *_markdup.bam| paste -sd "," -| sed 's/,/ I=/g'`
+    inp=`echo " I=${finp}"`
+    java -jar ~/Programs/picard/picard.jar MergeSamFiles ${inp} \
+    O=output_merged_files.bam USE_THREADING=true
+fi
 # Add the ancestor orphaned read group for accomulate
-samtools addreplacerg -r "ID:ancestor" -r "SM:ancestor" -m orphan_only  output_merged_files.bam > CAN.bam
+if [[ ! -f CAN.bam ]]
+then
+    samtools addreplacerg -r "ID:ancestor" -r "SM:ancestor" -m orphan_only  \
+    output_merged_files.bam > CAN.bam
+fi
 
 # Sort the resulting bam file
-java -jar ~/Programs/picard/picard.jar SortSam I=CAN.bam o=CAN_sorted.bam SORT_ORDER=coordinate
+if [[ ! -f CAN_sorted.bam ]]
+then
+    java -jar ~/Programs/picard/picard.jar SortSam I=CAN.bam o=CAN_sorted.bam \
+    SORT_ORDER=coordinate
+fi
 
 #Run accumulate
-samtools view -@ 28 -H CAN_sorted.bam| ~/Programs/accuMulate-tools/extract_samples.py ancestor - > params.ini
+samtools view -@ 28 -H CAN_sorted.bam | \
+~/Programs/accuMulate-tools/extract_samples.py ancestor - > params.ini
 ~/Programs/accuMulate-tools/GC_content.py ${ref} >> params.ini
 echo "mu=2.30e-9
 seq-error=0.001
