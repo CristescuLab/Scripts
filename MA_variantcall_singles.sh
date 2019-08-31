@@ -7,6 +7,29 @@ set -e
 ref=${1}
 java='java -jar -Xmx10g'
 
+
+density_plot(){
+python3 - << EOF
+import pandas as pd
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
+df = pd.read_csv('$1', sep='\t')
+fig = plt.figure()
+fig.subplots_adjust(hspace=0.4, wspace=0.4)
+for i, p in enumerate(['QD', 'FS', 'SOR', 'MQ', 'MQRankSum', 'ReadPosRankSum']):
+    ax = fig.add_subplot(2, 3, i+1)
+    ax.title.set_text(p)
+    d = df[p]
+    m = float(d.mode().iloc[0])
+    print(m)
+    #d.plot.kde(bw_method=0.1, ax=ax)
+    d.hist(ax=ax, density=True, bins=100)
+    ax.axvline(x=m, lw=1, ls=':', color='b')
+plt.tight_layout()
+plt.savefig('$2_densities.pdf')
+EOF
+}
+
 filter_bam(){
 # 1. ref
 # 2. bam file
@@ -18,29 +41,66 @@ if [[ ! -f ${2}.bai ]]; then
     samtools index -@ 28 $2
 fi
 lab=${2%%_markdup.bam}
-${java} ${GATK} HaplotypeCaller -R $1 -I $2 -ERC GVCF \
--O ${lab}_raw_variants.vcf --standard-min-confidence-threshold-for-calling 30 \
--A AlleleFraction -A BaseQuality -A BaseQualityRankSumTest -A Coverage \
--A DepthPerAlleleBySample -A DepthPerSampleHC -A LikelihoodRankSumTest \
--A MappingQuality -A MappingQualityRankSumTest -A ExcessHet -A FisherStrand \
--A QualByDepth -A ReadOrientationArtifact -A StrandBiasBySample \
--A StrandOddsRatio
 
-${java} ${GATK} GenotypeGVCFs -R ${ref} -V raw_variants.vcf -O raw_genos.vcf
+if [[ ! -f ${lab}_raw_variants.vcf ]]
+then
+    ${java} ${GATK} HaplotypeCaller -R $1 -I $2 -ERC GVCF \
+    -O ${lab}_raw_variants.vcf -A StrandOddsRatio -A ReadOrientationArtifact \
+    -A AlleleFraction -A BaseQuality -A BaseQualityRankSumTest -A Coverage \
+    -A DepthPerAlleleBySample -A DepthPerSampleHC -A LikelihoodRankSumTest \
+    -A MappingQuality -A MappingQualityRankSumTest -A ExcessHet \
+    -A QualByDepth  -A StrandBiasBySample  -A FisherStrand \
+    --standard-min-confidence-threshold-for-calling 30
+fi
 
+if [[ ! -f ${lab}_raw_genos.vcf ]]
+then
+    ${java} ${GATK} GenotypeGVCFs -R ${ref} -V ${lab}_raw_variants.vcf \
+    -O ${lab}_raw_genos.vcf
+fi
 
-#Retain only biallelic and fileter
-${java} ${GATK} SelectVariants -V raw_genos.vcf -O SNPS.vcf \
---restrict-alleles-to BIALLELIC -select-type SNP \
--select "AF < 0.99" -select "SOR < 1.0" -select "ReadPosRankSum < 1.5" \
--select "ReadPosRankSum > 0.0" -select "MQRankSum > -0.5" \
--select "MQRankSum < 1.5" -select "MQ > 59.9" -select "MQ < 60.1" \
--select "FS < 6.0" -select "QD > 10.0"
+if [[ ! -f ${lab}_annotated.vcf ]]
+then
+    ${java} ${GATK} VariantAnnotator -R ${ref} -I ${lab}_markdup.bam \
+   -V ${lab}_raw_genos.vcf -O ${lab}_annotated.vcf -A StrandOddsRatio \
+   -A ReadOrientationArtifact -A AlleleFraction -A BaseQuality \
+   -A BaseQualityRankSumTest -A Coverage -A DepthPerAlleleBySample \
+   -A DepthPerSampleHC -A LikelihoodRankSumTest -A MappingQuality \
+   -A MappingQualityRankSumTest -A ExcessHet -A QualByDepth \
+   -A StrandBiasBySample -A FisherStrand
 
-# last selection step
-vcftools --vcf SNPS.vcf --max-missing 1 --maf 0.05 --minDP 20.0 \
---min-meanDP 29.0 --max-meanDP 31 --minQ 50.0 --recode --recode-INFO-all \
---min-alleles 2 --max-alleles 2 --hwe 0.001 --out SNP_db
+   ${java} ${GATK} VariantsToTable -R ${ref} -V ${lab}_annotated.vcf \
+   -F ExcessHet -F AC -F AF -F AN -F DP -F FS -F MBQ -F QD -F SOR -F MQ \
+   -F MQRankSum -F ReadPosRankSum -O ${lab}_annotations.table
+fi
+modes=($(density_plot  ${lab}_annotations.table test))
+modes[1]=`bc -l <<< "scale=2;${modes[1]} +1"`
+modes[2]=`bc -l <<< "scale=2;${modes[2]} +1"`
+mq1=`bc -l <<< "scale=2;${modes[3]} + 0.1"`
+mq2=`bc -l <<< "scale=2;${modes[3]} - 0.1"`
+mqrs1=`bc -l <<< "scale=2;${modes[4]} - 0.5"`
+mqrs2=`bc -l <<< "scale=2;${modes[4]} + 0.5"`
+rprs1=`bc -l <<< "scale=2;${modes[5]} + 1.5"`
+rprs2=`bc -l <<< "scale=2;${modes[5]} - 1.5"`
+if [[ ! -f ${lab}_SNPS.vcf ]]
+then
+    #Retain only biallelic and filter
+    ${java} ${GATK} SelectVariants -V ${lab}_raw_genos.vcf -O ${lab}_SNPS.vcf \
+    --restrict-alleles-to BIALLELIC -select-type SNP \
+    -select "AF < 0.99" -select "SOR < ${modes[2]}" \
+    -select "ReadPosRankSum < ${rprs1}" -select "ReadPosRankSum > ${rprs2}" \
+    -select "MQRankSum > ${mqrs1}" -select "MQRankSum < ${mqrs2}" \
+    -select "MQ > ${mq2}" -select "MQ < ${mq1}" \
+    -select "FS < ${modes[1]}" -select "QD > ${modes[0]}"
+fi
+
+if [[ ! -f ${lab}_SNP_db ]]
+then
+    # last selection step
+    vcftools --vcf ${lab}_SNPS.vcf --max-missing 1 --maf 0.05 --minDP 20.0 \
+    --min-meanDP 29.0 --max-meanDP 31 --minQ 50.0 --recode --recode-INFO-all \
+    --min-alleles 2 --max-alleles 2 --hwe 0.001 --out ${lab}_SNP_db
+fi
 }
 
 bootsrap_vcf(){
@@ -52,12 +112,13 @@ bootsrap_vcf(){
 java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
 filter_bam $2 $3
+tag=${3%%_markdup.bam}
 for i in `seq $1`
 do
    echo "Running iteration $i in bootstrap"
-   ${java} ${GATK} IndexFeatureFile -F SNP_db.recode.vcf
+   ${java} ${GATK} IndexFeatureFile -F ${tag}_SNP_db.recode.vcf
    ${java} ${GATK} BaseRecalibrator -R ${ref} -I ${tag}_markdup.bam \
-   -O ${tag}_recal_data.table --known-sites SNP_db.vcf
+   -O ${tag}_recal_data.table --known-sites ${tag}_SNP_db.recode.vcf
    echo ${i} > bootdone
 done
 }
