@@ -4,6 +4,9 @@ set -e
 
 #define reference genome path
 #ref=/media/jshleap/ExtraDrive2/Playground/Mutation_accomulation/D_pulex_ref_PA42_clean.masked.fasta
+
+# Usage:
+# MA_variantcall_singles.sh path2reference input_prefix cpus
 ref=${1}
 java='java -jar -Xmx10g'
 
@@ -28,6 +31,41 @@ for i, p in enumerate(['QD', 'FS', 'SOR', 'MQ', 'MQRankSum', 'ReadPosRankSum']):
 plt.tight_layout()
 plt.savefig('$2_densities.pdf')
 EOF
+}
+
+
+select_variants(){
+${java} ${GATK} VariantsToTable -R ${2} -V ${1}_annotated.vcf \
+-F ExcessHet -F AC -F AF -F AN -F DP -F FS -F MBQ -F QD -F SOR -F MQ \
+-F MQRankSum -F ReadPosRankSum -O ${1}_annotations.table
+modes=($(density_plot  ${1}_annotations.table test))
+modes[1]=`bc -l <<< "scale=2;${modes[1]} +1"`
+modes[2]=`bc -l <<< "scale=2;${modes[2]} +1"`
+mq1=`bc -l <<< "scale=2;${modes[3]} + 0.1"`
+mq2=`bc -l <<< "scale=2;${modes[3]} - 0.1"`
+mqrs1=`bc -l <<< "scale=2;${modes[4]} - 0.5"`
+mqrs2=`bc -l <<< "scale=2;${modes[4]} + 0.5"`
+rprs1=`bc -l <<< "scale=2;${modes[5]} + 1.5"`
+rprs2=`bc -l <<< "scale=2;${modes[5]} - 1.5"`
+if [[ ! -f ${1}_SNPS.vcf ]]
+then
+    #Retain only biallelic and filter
+    ${java} ${GATK} SelectVariants -V ${1}_raw_genos.vcf -O ${1}_SNPS.vcf \
+    --restrict-alleles-to BIALLELIC -select-type SNP \
+    -select "AF < 0.99" -select "SOR < ${modes[2]}" \
+    -select "ReadPosRankSum < ${rprs1}" -select "ReadPosRankSum > ${rprs2}" \
+    -select "MQRankSum > ${mqrs1}" -select "MQRankSum < ${mqrs2}" \
+    -select "MQ > ${mq2}" -select "MQ < ${mq1}" \
+    -select "FS < ${modes[1]}" -select "QD > ${modes[0]}"
+fi
+
+if [[ ! -f ${1}_SNP_db ]]
+then
+    # last selection step
+    z --vcf ${1}_SNPS.vcf --max-missing 1 --maf 0.05 --minDP 20.0 \
+    --min-meanDP 29.0 --max-meanDP 31 --minQ 50.0 --recode --recode-INFO-all \
+    --min-alleles 2 --max-alleles 2 --hwe 0.001 --out ${1}_SNP_db
+fi
 }
 
 filter_bam(){
@@ -68,39 +106,8 @@ then
    -A DepthPerSampleHC -A LikelihoodRankSumTest -A MappingQuality \
    -A MappingQualityRankSumTest -A ExcessHet -A QualByDepth \
    -A StrandBiasBySample -A FisherStrand
-
-   ${java} ${GATK} VariantsToTable -R ${ref} -V ${lab}_annotated.vcf \
-   -F ExcessHet -F AC -F AF -F AN -F DP -F FS -F MBQ -F QD -F SOR -F MQ \
-   -F MQRankSum -F ReadPosRankSum -O ${lab}_annotations.table
 fi
-modes=($(density_plot  ${lab}_annotations.table test))
-modes[1]=`bc -l <<< "scale=2;${modes[1]} +1"`
-modes[2]=`bc -l <<< "scale=2;${modes[2]} +1"`
-mq1=`bc -l <<< "scale=2;${modes[3]} + 0.1"`
-mq2=`bc -l <<< "scale=2;${modes[3]} - 0.1"`
-mqrs1=`bc -l <<< "scale=2;${modes[4]} - 0.5"`
-mqrs2=`bc -l <<< "scale=2;${modes[4]} + 0.5"`
-rprs1=`bc -l <<< "scale=2;${modes[5]} + 1.5"`
-rprs2=`bc -l <<< "scale=2;${modes[5]} - 1.5"`
-if [[ ! -f ${lab}_SNPS.vcf ]]
-then
-    #Retain only biallelic and filter
-    ${java} ${GATK} SelectVariants -V ${lab}_raw_genos.vcf -O ${lab}_SNPS.vcf \
-    --restrict-alleles-to BIALLELIC -select-type SNP \
-    -select "AF < 0.99" -select "SOR < ${modes[2]}" \
-    -select "ReadPosRankSum < ${rprs1}" -select "ReadPosRankSum > ${rprs2}" \
-    -select "MQRankSum > ${mqrs1}" -select "MQRankSum < ${mqrs2}" \
-    -select "MQ > ${mq2}" -select "MQ < ${mq1}" \
-    -select "FS < ${modes[1]}" -select "QD > ${modes[0]}"
-fi
-
-if [[ ! -f ${lab}_SNP_db ]]
-then
-    # last selection step
-    vcftools --vcf ${lab}_SNPS.vcf --max-missing 1 --maf 0.05 --minDP 20.0 \
-    --min-meanDP 29.0 --max-meanDP 31 --minQ 50.0 --recode --recode-INFO-all \
-    --min-alleles 2 --max-alleles 2 --hwe 0.001 --out ${lab}_SNP_db
-fi
+# select_variants ${lab}
 }
 
 bootsrap_vcf(){
@@ -116,6 +123,7 @@ tag=${3%%_markdup.bam}
 for i in `seq $1`
 do
    echo "Running iteration $i in bootstrap"
+   select_variants ${tag} ${ref}
    ${java} ${GATK} IndexFeatureFile -F ${tag}_SNP_db.recode.vcf
    ${java} ${GATK} BaseRecalibrator -R ${ref} -I ${tag}_markdup.bam \
    -O ${tag}_recal_data.table --known-sites ${tag}_SNP_db.recode.vcf
@@ -165,8 +173,9 @@ else
 fi
 
 # compute expected heterocigocity
-angsd -bam <(ls ${tag}_markdup.bam) -doSaf 1 -anc ${ref} -GL 1 -P 24 \
--out ${tax}.out
+angsd -bam ${tag}_markdup.bam -doSaf 1 -anc ${ref} -GL 1 -P ${3} -out ${tag}.out
+#angsd -bam <(ls ${tag}_markdup.bam) -doSaf 1 -anc ${ref} -GL 1 -P ${3} \
+#-out ${tag}.out
 ~/Programs/angsd/misc/realSFS out.saf.idx >${tag}_est.ml
 
 ehe=`python - << EOF
