@@ -9,8 +9,10 @@ set -e
 # MA_variantcall_singles.sh path2reference input_prefix cpus
 ref=${1}
 java='java -jar -Xmx10g'
-
-
+java='java -jar -Xmx10g'
+GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
+picard=~/Programs/picard/picard.jar
+realSFS=~/Programs/angsd/misc/realSFS
 density_plot(){
 python3 - << EOF
 import pandas as pd
@@ -71,9 +73,6 @@ fi
 filter_bam(){
 # 1. ref
 # 2. bam file
-java='java -jar -Xmx10g'
-GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
-picard=~/Programs/picard/picard.jar
 
 if [[ ! -f ${2}.bai ]]; then
     samtools index -@ 28 $2
@@ -176,7 +175,7 @@ fi
 angsd -bam ${tag}_markdup.bam -doSaf 1 -anc ${ref} -GL 1 -P ${3} -out ${tag}.out
 #angsd -bam <(ls ${tag}_markdup.bam) -doSaf 1 -anc ${ref} -GL 1 -P ${3} \
 #-out ${tag}.out
-~/Programs/angsd/misc/realSFS out.saf.idx >${tag}_est.ml
+${realSFS} out.saf.idx >${tag}_est.ml
 
 ehe=`python - << EOF
 import numpy
