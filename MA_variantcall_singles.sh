@@ -9,7 +9,6 @@ set -e
 # MA_variantcall_singles.sh path2reference input_prefix cpus
 ref=${1}
 java='java -jar -Xmx10g'
-java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
 picard=~/Programs/picard/picard.jar
 realSFS=~/Programs/angsd/misc/realSFS
