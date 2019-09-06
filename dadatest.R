@@ -136,8 +136,8 @@ execute_cutdadapt <- function (forward, reverse, primerF, primerR, len){#}, cutt
     Adapter2rc, '-A', Adapter1rc, '-o', paste0('./Trimming/', 'trimmed_', name,
     '_R1.fastq'), '-p', paste0('./Trimming/trimmed_', name, '_R2.fastq'),
     '--match-read-wildcards', '--trim-n',  '-n 2', '--untrimmed-output',
-    './Trimming/untrimmed_U.fastq', '--untrimmed-paired-output',
-    './Trimming/untrimmed_P.fastq', forward, reverse, '>', logfile)
+    paste0('./Trimming/', name, 'untrimmed_U.fastq'), '--untrimmed-paired-output',
+    paste0('./Trimming/', name, 'untrimmed_P.fastq'), forward, reverse, '>', logfile)
     print(paste('Executing cutadapt command:', command))
     system(command)
     write(command, file=paste0(name, '_cutadapt.command.txt'))
