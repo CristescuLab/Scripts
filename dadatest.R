@@ -251,7 +251,7 @@ opt = parse_args(opt_parser);
 print("THIS SCRIPT ASSUMES THAT YOUR DATA HAS BEEN MULTIPLEXED PER SAMPLE")
 print(opt, sep = "\n")
 
-max_cpus <- opt$max_cpus
+max_cpus <- opt$cpus
 if (max_cpus == 0 | max_cpus == 1){cpus <- FALSE} else if (max_cpus == -1){
     cpus <- TRUE}else{cpus <- max_cpus}
 path <- opt$path
