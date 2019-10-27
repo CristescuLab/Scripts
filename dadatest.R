@@ -187,6 +187,20 @@ seqkitRC <- function(filelist){
         newl <- c(newl, j)
     }
 return(newl)}
+
+run_cutadapt <- function(fnFs, fnRs, primerF, primerR, min_read_length, cpus){
+    if (cpus == FALSE){
+    caout <- vector()
+    for (i in seq(length(fnFs))){
+        m <- execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)
+        caout <- rbind(caout, m)}}else{
+        packages <- c('tools', 'plyr', 'ShortRead', 'dada2', 'Biostrings')
+        caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .packages=packages
+        ) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)}
+        save(caout, file = 'cutadapt.rda')
+        return(caout)
+}
+
 ### Start of the script
 option_list = list(
   make_option(c("-p", "--path"), type="character", default=getwd(), 
@@ -229,9 +243,7 @@ option_list = list(
               help=paste("Maximum number of 'expected errors' allowed in",
                          "a reverse read [default= %default]")),
   make_option(c("--min_asv_size"), action="store", default=8, type="numeric",
-              help=paste("Minumum size of an ASV  [default= %default]")),
-  make_option(c("--max_cpus"), action="store", default=-1, type="numeric",
-              help=paste("Maximum number of cpus to use  [default= %default]"))
+              help=paste("Minumum size of an ASV  [default= %default]"))
   ) 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -239,8 +251,9 @@ opt = parse_args(opt_parser);
 print("THIS SCRIPT ASSUMES THAT YOUR DATA HAS BEEN MULTIPLEXED PER SAMPLE")
 print(opt, sep = "\n")
 
-cpus <- opt$max_cpus
-if (cpus == 0 | cpus == 1){cpus <- FALSE} else if (cpus == -1){cpus <- TRUE}
+max_cpus <- opt$max_cpus
+if (max_cpus == 0 | max_cpus == 1){cpus <- FALSE} else if (max_cpus == -1){
+    cpus <- TRUE}else{cpus <- max_cpus}
 path <- opt$path
 prefix <- opt$prefix
 min_qual <- opt$min_qual
@@ -259,8 +272,8 @@ min_amplicon <- opt$min_amplicon_length
 max_amplicon <- opt$max_amplicon_length
 min_read_length <- round( (min_amplicon/2) + min_overlap )
 maxEE=c(opt$maxEE_fwd,opt$maxEE_rev) # this is relaxed and differs from tutorial 
-cl <- makeCluster(opt$cpus)
-registerDoParallel(cl)
+# cl <- makeCluster(opt$cpus)
+# registerDoParallel(cl)
 # Forward and reverse fastq filenames have format: SAMPLENAME<PATTERN>
 if (is.null(prefix))
 {
@@ -284,11 +297,13 @@ dir.create('Trimming')
 packages <- c('tools', 'plyr', 'ShortRead', 'dada2', 'Biostrings')
 if (file.exists('cutadapt.rda')) {
   load(file = 'cutadapt.rda')} else {
-    #for (i in seq(length(fnFs))){
-    caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .packages=packages
-    ) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)#, read_lenght - trim)
-    #caout <- rbind(caout, m)}
-    save(caout, file = 'cutadapt.rda')
+    caout <- run_cutadapt(fnFs, fnRs, primerF, primerR, min_read_length, cpus)
+    # caout <- vector()
+    # #for (i in seq(length(fnFs))){
+    # caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .packages=packages
+    # ) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)#, read_lenght - trim)
+    # #caout <- rbind(caout, m)}
+    # save(caout, file = 'cutadapt.rda')
   }
 # Get the new adaptors-free filenames 
 fnFs <- sort(Sys.glob("./Trimming/trimmed*R1.fastq"))
