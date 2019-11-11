@@ -8,6 +8,8 @@ set -e
 # Usage:
 # MA_variantcall_singles.sh path2reference input_prefix cpus
 ref=${1}
+# get name of pair
+tag=${2} # prefix is a command line argument
 java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
 picard=~/Programs/picard/picard.jar
@@ -128,9 +130,6 @@ do
    echo ${i} > bootdone
 done
 }
-
-# get name of pair
-tag=${2} # prefix is a command line argument
 # map files to reference and ignore unmapped reads (this is to avoid possible contaminant sequences)
 if [[ ! -f  ${tag}_mapped.bam ]]
 then
