@@ -327,7 +327,7 @@ def parse_dedup(fn):
 
 
 def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
-         query_coverage=None,length=None, output_filtered=False, min_reads=0,
+         query_coverage=None, length=None, output_filtered=False, min_reads=0,
          taxon_level='species', plot=False, tax_for_pattern=None, pattern=None,
          suffix_for_plot=None, n_top=None, use_coi=False, report_dedup=None,
          same_blast=None, cpus=-1, max_qlen=None):
