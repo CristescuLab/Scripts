@@ -12,7 +12,7 @@ ref=${1}
 tag=${2} # prefix is a command line argument
 java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
-picard=~/Programs/picard/picard.jar
+PICARD=~/Programs/picard/picard.jar
 realSFS=~/Programs/angsd/misc/realSFS
 density_plot(){
 python3 - << EOF
@@ -116,8 +116,9 @@ bootsrap_vcf(){
 # 2) reference
 # 3) un-calibrated data
 # first call
-java='java -jar -Xmx10g'
-GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
+java=$4
+GATK=$5
+"${PICARD}"=$6
 filter_bam $2 $3
 tag=${3%%_markdup.bam}
 for i in `seq $1`
@@ -140,20 +141,20 @@ fi
 # Sort mapped files
 if [[ ! -f ${tag}_sorted.bam ]]
 then
-    java -jar ~/Programs/picard/picard.jar SortSam I=${tag}_mapped.bam \
+    java -jar "${PICARD}" SortSam I=${tag}_mapped.bam \
     O=${tag}_sorted.bam SORT_ORDER=coordinate
 fi
 # Mark duplicates and remove them
 if [[ ! -f ${tag}_markdup.bam ]]
 then
-    java -jar ~/Programs/picard/picard.jar MarkDuplicates \
+    java -jar "${PICARD}" MarkDuplicates \
     I=${tag}_sorted.bam O=${tag}_markdup.bam M=${tag}_dup_metrics.txt \
     REMOVE_SEQUENCING_DUPLICATES=true ASSUME_SORTED=true
 fi
 # Get some summary stats
 if [[ ! -f ${tag}.stats ]]
 then
-    java -jar ~/Programs/picard/picard.jar CollectAlignmentSummaryMetrics \
+    java -jar "${PICARD}" CollectAlignmentSummaryMetrics \
     R=${ref} I=${tag}_markdup.bam OUTPUT=${tag}.stats
 fi
 # get depth at each position
@@ -162,11 +163,11 @@ samtools index ${tag}_markdup.bam
 # boostrap
 if [[ ! -f bootdone ]]
 then
-    bootsrap_vcf 100 ${ref} ${tag}_markdup.bam
+    bootsrap_vcf 100 ${ref} ${tag}_markdup.bam "${java}" "${GATK}" "${PICARD}"
 else
     n=`cat bootdone`
     n=$(( 100 - n ))
-    bootsrap_vcf ${n} ${ref} ${tag}_markdup.bam
+    bootsrap_vcf ${n} ${ref} ${tag}_markdup.bam "${java}" "${GATK}" "${PICARD}"
 fi
 
 # compute expected heterocigocity
