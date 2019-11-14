@@ -2,7 +2,7 @@ from tqdm import tqdm
 import pandas as pd
 import shelve
 import sys
-
+import re
 
 def parse_fasta(filename):
     """
@@ -41,6 +41,7 @@ def main(filtered, fasta, taxa):
         seqs = [x[1:] for x in list(dic.keys())]
         sdf = df[df.qseqid.isin(seqs)]
         for name, d in tqdm(sdf.groupby(taxa), desc="Getting %s" % taxa):
+            name = re.sub('[^A-Za-z0-9_.]+', '', name)
             if d.empty:
                 continue
             with open('%s_%s.fas' % (prefix, name.replace(' ', '_')), 'w'
