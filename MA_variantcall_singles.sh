@@ -118,7 +118,7 @@ bootsrap_vcf(){
 # first call
 java=$4
 GATK=$5
-"${PICARD}"=$6
+PICARD=$6
 filter_bam $2 $3
 tag=${3%%_markdup.bam}
 for i in `seq $1`
