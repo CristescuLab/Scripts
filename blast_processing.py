@@ -89,7 +89,7 @@ def get_sps(line):
 
 def taxon2exe(sp):
     st = run(taxonkit2, input=sp.encode('utf-8'), shell=True, stdout=PIPE)
-    return pd.read_table(BytesIO(st.stdout), names=['species', 'staxid', '_',
+    return pd.read_csv(BytesIO(st.stdout), names=['species', 'staxid', '_',
                                                     'lineage'])
 
 
@@ -108,7 +108,7 @@ def get_lineages(fn, typeof=1, cpus=-1):
     else:
         # assume that staxid is in the 8th column of the hits file
         o = run(taxonkit % fn, shell=True, stdout=PIPE).stdout
-        df = pd.read_table(BytesIO(o), header=None,
+        df = pd.read_csv(BytesIO(o), header=None,
                            names=['staxid', '_', 'lineage']).reindex(
             columns=['staxid', 'lineage'])
 
@@ -157,9 +157,9 @@ stitle'
     sorts = dict(zip(sortable, orientation))
     fnc = {True: get_sps_coi, False: get_sps}
     if same_blast is not None:
-        df = pd.read_table(same_blast, **kwargs)
+        df = pd.read_csv(same_blast, **kwargs)
     else:
-        df = pd.read_table(fn, names=names, **kwargs)
+        df = pd.read_csv(fn, names=names, **kwargs)
     by = list(set(df.columns).intersection(sortable))
     asc = [sorts[x] for x in by]
     flipped = ['evalue', 'maxqlen']
@@ -360,7 +360,7 @@ def main(blast_file, prefix, names, pident=None, evalue=None, query_len=None,
         output_filtered = prefix
     kwargs = dict(filters=filters, output_filtered=output_filtered, cpus=cpus,
                   top_n_hits=n_top, coi=use_coi, same_blast=same_blast,
-                  names=names)
+                  names=names, taxlevel=taxon_level)
     df = parse_blast(blast_file, **kwargs)
     if report_dedup is not None:
         dedup = parse_dedup(report_dedup)
