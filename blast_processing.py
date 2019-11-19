@@ -49,6 +49,7 @@ taxonkit = "grep -v '#' %s | cut -f 8 | sort -u| taxonkit lineage| taxonkit " \
            "reformat"
 taxonkit2 = "taxonkit name2taxid| taxonkit lineage -i 2 | taxonkit reformat " \
             "-i 3"
+default_names = 'qseqid sseqid pident evalue qcovs qlen length staxid stitle'
 
 
 def get_sps_coi(line):
@@ -80,17 +81,22 @@ def get_sps(line):
             idx = 1
         else:
             idx = 0
-        sp = ' '.join(line[idx: idx + 2])
-    if 'sp.' in sp:
-        return sp.split()[0]
-    else:
+        sp = ' '.join(line[idx: idx + 3])
+    if '.' in sp:
         return sp
+    else:
+        return ' '.join(sp.split()[:-1])
 
 
 def taxon2exe(sp):
-    st = run(taxonkit2, input=sp.encode('utf-8'), shell=True, stdout=PIPE)
-    return pd.read_csv(BytesIO(st.stdout), names=['species', 'staxid', '_',
-                                                    'lineage'])
+    genus = sp.split()[0]
+    st = run(taxonkit2, input=genus.encode('utf-8'), shell=True, stdout=PIPE)
+    df = pd.read_csv(BytesIO(st.stdout), sep='\t', names=[
+        'genus', 'g_staxid', '_', 'lineage'])
+    df['species'] = sp
+    return df
+
+
 
 
 def get_lineages(fn, typeof=1, cpus=-1):
@@ -104,11 +110,11 @@ def get_lineages(fn, typeof=1, cpus=-1):
         # Assume you have species and want lineages
         dfs = Parallel(n_jobs=cpus, prefer="threads")(delayed(taxon2exe)(sp)
                                                       for sp in set(typeof))
-        df = pd.concat(dfs).reindex(columns=['species', 'staxid', 'lineage'])
+        df = pd.concat(dfs).reindex(columns=['species', 'lineage'])
     else:
         # assume that staxid is in the 8th column of the hits file
         o = run(taxonkit % fn, shell=True, stdout=PIPE).stdout
-        df = pd.read_csv(BytesIO(o), header=None,
+        df = pd.read_csv(BytesIO(o), header=None, sep='\t',
                            names=['staxid', '_', 'lineage']).reindex(
             columns=['staxid', 'lineage'])
 
@@ -136,8 +142,7 @@ def split_acc_lineage(x):
 
 def parse_blast(fn, filters={}, top_n_hits=None, output_filtered=False,
                 coi=False, same_blast=None, cpus=-1, taxlevel='species',
-                names='qseqid sseqid pident evalue qcovs qlen length staxid '
-                      'stitle'):
+                names=default_names):
     """
     Parse a blast file, and filter it if required
 stitle'
@@ -203,8 +208,12 @@ stitle'
             # avoid computation if
             lin = get_lineages('', typeof=df.species.tolist(), cpus=cpus)
             df = df.merge(lin, on='species', how='left')
-            ndf = df.stitle.apply(split_acc_lineage)
-            ndf = ndf.str.split(';', expand=True)
+            # ndf = df.stitle.apply(split_acc_lineage)
+            ndf = df.lineage.str.strip(';').str.split(';', expand=True).dropna(
+                axis=1, how='all')
+            ndf = ndf.rename(
+                columns=dict(zip(ndf.columns, SIX[:-1]))).reindex(
+                columns=SIX[:-1])
             df = pd.concat([df, ndf], axis=1)
 
     if output_filtered:
