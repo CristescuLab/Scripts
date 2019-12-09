@@ -16,7 +16,7 @@ m_hits={1..10}
 p_hits=( 60 70 80 90 99 )
 n_hits={0..10}
 string=`IFS=,;eval echo "{${evalues[*]}}_{${p_ids[*]}}_${m_hits[*]}_{${p_hits[*]}}_${n_hits}"`
-IFS=" ";read -ra perms <<< ${string}
+IFS=" ";perms=(${string})
 IFS=${OLDIFS}
 # set variuable for hash table
 declare -A results
@@ -36,8 +36,10 @@ run_basta(){
 # 4) config file
 # 5) File with list of True lables
 # 6) workerid
-local IFS="_"; read -ra params <<< ${1}
+echo "running run_basta $@"
+local IFS="_"; params=(${1})
 IFS=${OLDIFS}
+local IFS=${OLDIFS}
 local evalue="${params[0]}"
 local p_id="${params[1]}"
 local m_hit="${params[2]}"
@@ -48,7 +50,7 @@ local mapping=${3}
 local config_file=${4}
 local true_lables=$(sort -u ${5})
 local workerid=${6}
-
+#echo "running basta"
 basta sequence "${blast}" basta${workerid}.out ${mapping} -e ${evalue} \
 -i ${p_id} -m ${m_hit} -n ${n_hit} -p ${p_hit} -c ${config_file} >/dev/null 2>&1
 #echo "Extracting metrics"
