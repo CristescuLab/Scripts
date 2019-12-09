@@ -36,7 +36,7 @@ run_basta(){
 # 4) config file
 # 5) File with list of True lables
 # 6) workerid
-echo "running run_basta $@"
+#echo "running run_basta $@"
 local IFS="_"; params=(${1})
 IFS=${OLDIFS}
 local IFS=${OLDIFS}
