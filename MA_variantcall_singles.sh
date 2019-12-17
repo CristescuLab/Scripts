@@ -14,6 +14,7 @@ java='java -jar -Xmx10g'
 GATK=~/Programs/gatk-4.1.0.0/GenomeAnalysisTK.jar
 PICARD=~/Programs/picard/picard.jar
 realSFS=~/Programs/angsd/misc/realSFS
+
 density_plot(){
 python3 - << EOF
 import pandas as pd

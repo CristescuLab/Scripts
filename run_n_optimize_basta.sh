@@ -9,6 +9,7 @@ blast=$2
 out_prefix=$3
 config=$4
 true_file=$5
+basta=$6
 ## Set the grid
 evalues=( 1E-80 1E-40 1E-20 1E-10 1E-5 1E-2 )
 p_ids=( 70 80 90 95 100 )
@@ -51,8 +52,9 @@ local config_file=${4}
 local true_lables=$(sort -u ${5})
 local workerid=${6}
 #echo "running basta"
-basta sequence "${blast}" basta${workerid}.out ${mapping} -e ${evalue} \
--i ${p_id} -m ${m_hit} -n ${n_hit} -p ${p_hit} -c ${config_file} >/dev/null 2>&1
+python2 ${basta} sequence "${blast}" basta${workerid}.out ${mapping} \
+-e ${evalue} -i ${p_id} -m ${m_hit} -n ${n_hit} -p ${p_hit} \
+-c ${config_file} 2>/dev/null
 #echo "Extracting metrics"
 pred=$(cut -f 2 basta.out| cut -d ';' -f 7- | sed -e '/^$/d' -e 's/;//' -e 's/_/ /g' | sort -u)
 local false_negatives=`comm -23 <(echo "${true_lables[@]}") <(echo "${pred[@]}") | wc -l`
@@ -62,9 +64,12 @@ local true_positives=`comm -12 <(echo "${true_lables[@]}") <(echo "${pred[@]}"})
 intF1=$(( (true_positives * 100) / (true_positives + false_negatives + false_positives) ))
 #echo "F1 is ${intF1}"
 #echo "Removing basta file"
+echo -e "${param}\t$intF1" >> results.basta
 rm basta${workerid}.out
 }
 
+export -f run_basta
+echo '' > results.basta # if already exist overwrite
 total="${#perms[@]}"
 counter=0
 for param in "${perms[@]}"
@@ -73,19 +78,16 @@ for param in "${perms[@]}"
     prog $(( (counter * 100) / total ))
     run_basta "${param}" "${blast}" "${basta_db}" "${config}" ${true_file}
 #    echo "out F1 ${intF1}"
-    results["${param}"]="${intF1}"
-    unset intF1
-#    echo "${!results[@]} - ${results[@]}"
-    #printf .
-    #prog ${count} ${total} "Running Basta..."
-  done #| pv -pt -i0.2 -s${total} -w 80 > /dev/null
-
-echo '' > results.bast # if already exist overwrite
-for k in "${!results[@]}"
-  do
-    echo "${k} ${results[$k]}" >> results.basta
+#    results["${param}"]="${intF1}"
+#    unset intF1
   done
+
+
+#for k in "${!results[@]}"
+#  do
+#    echo "${k} ${results[$k]}" >> results.basta
+#  done
 IFS="_"; read -ra best <<< `cat results.basta| sort -rn -k2| head -n 1 | cut -f 1 -d ' '`
 IFS=${OLDIFS}
 echo "basta sequence "${blast}" ${out_prefix}.out ${basta_db} \\" > best.param
-echo "-e ${best[0]} -i ${best[1]} -m ${best[2]} -n ${best[3]} -p ${best[0]}"  >> best.param
+echo "-e ${best[0]} -i ${best[1]} -m ${best[2]} -n ${best[3]} -p ${best[4]}"  >> best.param

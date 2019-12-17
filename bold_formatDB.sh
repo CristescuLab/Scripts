@@ -21,7 +21,7 @@ cut -d' ' -f1 | sed 's/>//'| sort -u > missingBOLDacc.list
 python BOLD_lineage.py missingBOLDacc.list missingBOLDlineages.list 10
 comm -13 <(cut -f1 missingBOLDlineages.list|sort) missingBOLDacc.list > still_missing
 count=1
-while [ `wc -l < still_missing` -ne 0 ]; do
+while [[ `wc -l < still_missing` -ne 0 ]]; do
 python BOLD_lineage.py still_missing tmp 10
 if [ `wc -l < tmp` -ne 0 ]; then
 cat tmp >> missingBOLDlineages.list
