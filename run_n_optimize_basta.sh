@@ -82,12 +82,24 @@ for param in "${perms[@]}"
 #    unset intF1
   done
 
+sort_it(){
+python - << EOF
+import pandas as pd
+df = pd.read_csv('results.basta', sep='\t', header=None, names=['params', 'f1'])
+best = df.nlargest(1, 'f1')
+p = best.params.iloc[0].split('_')
+with open('best.param', 'w') as o:
+    o.write("basta sequence ${blast} ${out_prefix}.out ${basta_db} \\\\")
+    o.write("\n-e %s -i %s -m %s -p %s -n %s\n" %(p[0], p[1], p[2], p[3], p[4]))
+EOF
+}
 
+sort_it
 #for k in "${!results[@]}"
 #  do
 #    echo "${k} ${results[$k]}" >> results.basta
 #  done
-IFS="_"; read -ra best <<< `cat results.basta| sort -rn -k2| head -n 1 | cut -f 1 -d ' '`
-IFS=${OLDIFS}
-echo "basta sequence "${blast}" ${out_prefix}.out ${basta_db} \\" > best.param
-echo "-e ${best[0]} -i ${best[1]} -m ${best[2]} -n ${best[3]} -p ${best[4]}"  >> best.param
+#IFS="_"; read -ra best <<< `cat results.basta| sort -rn -k2| head -n 1 | cut -f 1 -d $'\t'`
+#IFS=${OLDIFS}
+#echo "basta sequence "${blast}" ${out_prefix}.out ${basta_db} \\" > best.param
+#echo "-e ${best[0]} -i ${best[1]} -m ${best[2]} -n ${best[3]} -p ${best[4]}"  >> best.param
