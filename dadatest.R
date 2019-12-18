@@ -17,6 +17,25 @@ print(paste('running on DADA2 version', packageVersion("dada2"),
 # I am assuming we have a demultiplex samples if not go to bcl2fastq.
 # This will also only run with pairend (at least for now) remove adapter,
 # linker etc...
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+process_df <- function(df, minqual, wdw, tr=Null){
+    if (is.null(tr)){
+        l <- max(df$Cycle)
+        df$windows <- cut(df$Cycle, l/wdw)
+        df$a <- df$Count * df$Score
+         av <- ddply(df,~windows,summarise, Median=median(Score),
+                    Mean=sum(a)/sum(Count), Mean2=mean(Score), q25=quantile(Score)[1],
+                    Min=min(Score), mode=getmode(Score), mCycle=max(Cycle))
+        save(av, df, file = 'df.rda')
+        # print(av)
+        trimm <- min(av[av$Mean  < minqual,]$mCycle)}
+    else{trimm <- tr}
+  return(c(trimm, l))
+}
 ### Some functions
 quality_plot <- function (fl, n = 5e+05, aggregate = FALSE, minqual = 20, wdw = 10, tr = NULL) {
   # modification of the dada2 plot to save the plot to file and output the dataframe as well
@@ -125,26 +144,6 @@ quality_plot <- function (fl, n = 5e+05, aggregate = FALSE, minqual = 20, wdw = 
     }
   return(list(df = plotdf, trimm = trimm, read_lenght = read_lenght))}
 
-execute_cutdadapt <- function (forward, reverse, primerF, primerR, len){#}, cutting){len <- len - max(nchar(primerF), nchar(primerR))
-  name <- sapply(strsplit(basename(forward), "_R"), `[`, 1)
-  logfile = paste0('./Trimming/', name, '.log')
-  if (!file.exists(paste0('./Trimming/', 'trimmed_', name, '_R1.fastq'))){
-    Adapter2rc = paste(reverseComplement(DNAString(primerR)),  collapse='')
-    Adapter1rc = paste(reverseComplement(DNAString(primerF)),  collapse='')
-    logfile = paste0('./Trimming/', name, '.log')
-    command = paste('cutadapt -m', len, '-g', primerF, '-G', primerR, '-a',
-    Adapter2rc, '-A', Adapter1rc, '-o', paste0('./Trimming/', 'trimmed_', name,
-    '_R1.fastq'), '-p', paste0('./Trimming/trimmed_', name, '_R2.fastq'),
-    '--match-read-wildcards', '--trim-n',  '-n 2', '--untrimmed-output',
-    paste0('./Trimming/', name, 'untrimmed_U.fastq'), '--untrimmed-paired-output',
-    paste0('./Trimming/', name, 'untrimmed_P.fastq'), forward, reverse, '>', logfile)
-    print(paste('Executing cutadapt command:', command))
-    system(command)
-    write(command, file=paste0(name, '_cutadapt.command.txt'))
-    m <- parse_log(logfile, name)
-    return(m)}
-}
-
 parse_log <- function(logfile, name){
     alllines <- readLines(logfile)
     bl <- strsplit(alllines[8:12], ' ')
@@ -155,19 +154,28 @@ parse_log <- function(logfile, name){
     return(v)
 }
 
-process_df <- function(df, minqual, wdw, tr=Null){
-    if (is.null(tr)){
-        l <- max(df$Cycle)
-        df$windows <- cut(df$Cycle, l/wdw)
-        df$a <- df$Count * df$Score
-        av <- ddply(df,~windows,summarise,Median=median(Score), 
-                    Mean=sum(a)/sum(Count), Mean2=mean(Score), secondquantile=quantile(Score)[2], 
-                    Min=min(Score), mCycle=max(Cycle))
-        save(av, df, file = 'df.rda')
-        #print(av)
-        trimm <- min(av[av$Mean < minqual,]$mCycle)}
-    else{trimm <- tr}
-  return(c(trimm, l))
+execute_cutdadapt <- function (forward, reverse, primerF, primerR, len){#}, cutting){len <- len - max(nchar(primerF), nchar(primerR))
+    name <- sapply(strsplit(basename(forward), "_R"), `[`, 1)
+    logfile = paste0('./Trimming/', name, '.log')
+    Adapter2rc = paste(reverseComplement(DNAString(primerR)),  collapse='')
+    Adapter1rc = paste(reverseComplement(DNAString(primerF)),  collapse='')
+    command = paste('cutadapt -m', len, '-g', primerF, '-G', primerR, '-a',
+    Adapter2rc, '-A', Adapter1rc, '-o', paste0('./Trimming/', 'trimmed_', name,
+    '_R1.fastq'), '-p', paste0('./Trimming/trimmed_', name, '_R2.fastq'),
+    '--match-read-wildcards', '--trim-n',  '-n 2', '--untrimmed-output',
+    './Trimming/untrimmed_U.fastq', '--untrimmed-paired-output',
+    './Trimming/untrimmed_P.fastq', forward, reverse, '>', logfile)
+    if (!file.exists(paste0('./Trimming/', 'trimmed_', name, '_R1.fastq'))){
+      print(paste('Executing cutadapt command:', command))
+      system(command)}
+      write(command, file=paste0(name, '_cutadapt.command.txt'))
+      alllines <- readLines(logfile)
+      bl <- strsplit(alllines[8:12], ' ')
+      input <- as.numeric(gsub(',', '', tail(bl[[1]], n=1)))
+      cutadapt <- as.numeric(gsub(',', '', head(tail(bl[[5]], n=2),n=1)))
+      v <- cbind(input, cutadapt)
+      row.names(v) <- name
+      return(v)
 }
 
 getN <- function(x) {
@@ -188,17 +196,20 @@ seqkitRC <- function(filelist){
     }
 return(newl)}
 
-run_cutadapt <- function(fnFs, fnRs, primerF, primerR, min_read_length, cpus){
-    if (cpus == FALSE){
+
+run_cutadapt <- function(fnFs, fnRs, primerF, primerR, min_read_length,
+use_parallel, packages){
+    exports=c('execute_cutdadapt', 'parse_log')
+    if (!use_parallel){
     caout <- vector()
     for (i in seq(length(fnFs))){
         m <- execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)
         caout <- rbind(caout, m)}}else{
-        packages <- c('tools', 'plyr', 'ShortRead', 'dada2', 'Biostrings')
-        caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .packages=packages
-        ) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)}
-        save(caout, file = 'cutadapt.rda')
-        return(caout)
+        caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .export=exports,
+        .packages=packages) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR,
+        min_read_length)}
+    #save(caout, file = 'cutadapt.rda')
+    return(caout)
 }
 
 ### Start of the script
@@ -211,7 +222,7 @@ option_list = list(
   make_option(c("-m", "--min_qual"), type="numeric", default=15, 
               help=paste("Minimum average (within window) allowed before",
               "trimming [default= %default]")),
-  make_option(c("-w", "--window"), type="numeric", default=10,
+  make_option(c("-w", "--window"), type="numeric", default=1,
               help="Window size to compute average quality [default= %default]"),
   make_option(c("-f", "--fwd_primer"), type="character", default=NULL, 
               help="Forward primer for demultiplexing and trimming [default= %default]"),
@@ -243,17 +254,33 @@ option_list = list(
               help=paste("Maximum number of 'expected errors' allowed in",
                          "a reverse read [default= %default]")),
   make_option(c("--min_asv_size"), action="store", default=8, type="numeric",
-              help=paste("Minumum size of an ASV  [default= %default]"))
-  ) 
+              help=paste("Minumum size of an ASV  [default= %default]")),
+  make_option(c("--priors"), action='store', default=character(0),
+              help="Prior sequences. File with one headerless sequence per line")
+  # make_option(c("--max_cpus"), action="store", default=-1, type="numeric",
+  #             help=paste("Maximum number of cpus to use  [default= %default]"))
+  )
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 print("THIS SCRIPT ASSUMES THAT YOUR DATA HAS BEEN MULTIPLEXED PER SAMPLE")
 print(opt, sep = "\n")
 
-max_cpus <- opt$cpus
-if (max_cpus == 0 | max_cpus == 1){cpus <- FALSE} else if (max_cpus == -1){
-    cpus <- TRUE}else{cpus <- max_cpus}
+cpus <- opt$cpus
+use_parallel <- !(cpus == 0 | cpus == 1)
+if (!use_parallel){
+    cpus <- FALSE
+} else if (cpus == -1){
+    cpus <- TRUE
+    cl <- makeCluster(detectCores())
+    registerDoParallel(cl)
+} else{
+    cl <- makeCluster(cpus)
+    registerDoParallel(cl)
+}
+if(length(opt$priors) == 0){priors<-opt$priors}else{
+priors <- scan(file = opt$priors, what=character())
+}
 path <- opt$path
 prefix <- opt$prefix
 min_qual <- opt$min_qual
@@ -271,9 +298,8 @@ min_overlap <- opt$min_overlap
 min_amplicon <- opt$min_amplicon_length
 max_amplicon <- opt$max_amplicon_length
 min_read_length <- round( (min_amplicon/2) + min_overlap )
-maxEE=c(opt$maxEE_fwd,opt$maxEE_rev) # this is relaxed and differs from tutorial 
-# cl <- makeCluster(opt$cpus)
-# registerDoParallel(cl)
+maxEE=c(opt$maxEE_fwd,opt$maxEE_rev) # this is relaxed and differs from tutorial
+
 # Forward and reverse fastq filenames have format: SAMPLENAME<PATTERN>
 if (is.null(prefix))
 {
@@ -297,13 +323,11 @@ dir.create('Trimming')
 packages <- c('tools', 'plyr', 'ShortRead', 'dada2', 'Biostrings')
 if (file.exists('cutadapt.rda')) {
   load(file = 'cutadapt.rda')} else {
-    caout <- run_cutadapt(fnFs, fnRs, primerF, primerR, min_read_length, cpus)
-    # caout <- vector()
-    # #for (i in seq(length(fnFs))){
-    # caout <- foreach(i=seq(length(fnFs)), .combine = rbind, .packages=packages
-    # ) %dopar% execute_cutdadapt(fnFs[i], fnRs[i], primerF, primerR, min_read_length)#, read_lenght - trim)
-    # #caout <- rbind(caout, m)}
-    # save(caout, file = 'cutadapt.rda')
+    caout <- run_cutadapt(fnFs, fnRs, primerF, primerR, min_read_length,
+    use_parallel, packages)
+    save(caout, file = 'cutadapt.rda')
+    print('Head of output of after cutadapt:')
+    print(head(caout))
   }
 # Get the new adaptors-free filenames 
 fnFs <- sort(Sys.glob("./Trimming/trimmed*R1.fastq"))
@@ -344,8 +368,8 @@ filtRs <- file.path("./Filtering", paste0(sample.names, "_R2_filt.fastq.gz"))
 if (file.exists('out.rda')) {
   load(file = 'out.rda')} else {
 out <- filterAndTrim(fnFs, filtFs, rev=fnRs, filt.rev=filtRs, truncLen=trimm,
-                     maxN = 0, maxEE = maxEE, truncQ = 2, rm.phix = TRUE,
-                     compress = TRUE, multithread = cpus, minLen=min(trimm),
+                     maxN = 0, maxEE = maxEE, truncQ = 2, rm.phix = TRUE, minQ = 15,
+                     compress = TRUE, multithread = cpus, minLen=min_read_length,
                      matchIDs=TRUE)
 row.names(out) <- sample.names
 save(out, file = 'out.rda')
@@ -381,8 +405,8 @@ names(derepRs) <- sample.names}
 print('Sample inference')
 if (file.exists('dadas.rda')) { 
   load(file = 'dadas.rda')} else {
-dadaFs <- dada(derepFs, err=errF, multithread=cpus, pool="pseudo")
-dadaRs <- dada(derepRs, err=errR, multithread=cpus, pool="pseudo")
+dadaFs <- dada(derepFs, err=errF, multithread=cpus, pool="pseudo", priors=priors)
+dadaRs <- dada(derepRs, err=errR, multithread=cpus, pool="pseudo", priors=priors)
 save(dadaFs, dadaRs, file = 'dadas.rda')}
 print('Merging reads ...')
 if (file.exists("mergers.rda")) { 
@@ -422,8 +446,7 @@ table(nchar(getSequences(seqtab)))
 print('Removing Chimeras')
 if (file.exists("nochimaeras.rda")) { 
   load(file = "nochimaeras.rda")} else {
-seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=cpus,
-verbose=TRUE)
+seqtab.nochim <- removeBimeraDenovo(seqtab, multithread=cpus, verbose=TRUE)
 all <- getUniques(seqtab.nochim)
 uniquesToFasta(all, 'all_samples.fasta')
 seqnames <- get.fasta.name('all_samples.fasta', clean_name = FALSE)
@@ -462,6 +485,7 @@ for(sample in row.names(seqtab.nochim)){
 # #with dada
 # taxa <- assignTaxonomy(seqtab.nochim, db, multithread=TRUE)
 # #with decipher
+# if(grepl('Rdata', db)){load(db)}else{
 # if(grepl('Rdata', db)){load(db)}else{
 # train <- readDNAStringSet(db)
 # s <- strsplit(names(train), ";") # get names (has to be formated properly)
