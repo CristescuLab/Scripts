@@ -62,14 +62,14 @@ unzip ./TaxAss/FreshTrain-files/FreshTrain18Aug2016.zip
 ecosystem_fa=FreshTrain18Aug2016/FreshTrain18Aug2016.fasta
 ecosystem_tax=FreshTrain18Aug2016/FreshTrain18Aug2016.taxonomy
 # Decompress the files for reference database
-unzip ./TaxAss/FreshTrain-files/FreshTrain-files/FreshTrain*${db}*
+azip=TaxAss/FreshTrain-files/*${db}*
+unzip ${azip}
 # Set the proper directory for the reference database
-dirname=./TaxAss/FreshTrain-files/FreshTrain-files/FreshTrain*${db}*
-dirname=$(basename ${dirname})
+dirname=$(basename ${azip})
 # Get the prefix of the fileset
 pre=${dirname%%.zip}
-general_fa=FreshTrain-files/${pre}.fasta
-general_tax=FreshTrain-files/${pre}.taxonomy
+general_fa=${pre}/${pre}.fasta
+general_tax=${pre}/${pre}.taxonomy
 # Step 1.make BLAST database
 makeblastdb -dbtype nucl -in ${ecosystem_fa} -input_type fasta -parse_seqids \
  -out custom.db
