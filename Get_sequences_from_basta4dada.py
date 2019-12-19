@@ -49,7 +49,7 @@ def main(basta, fasta, otutable,  outdir):
                 path = os.path.join(outdir, row, name.replace(' ', '_'))
                 if d.empty:
                     continue
-                if not os.path.isdir(path):
+                if not os.path.isdir(os.path.dirname(path)):
                     os.mkdir(os.path.dirname(path))
                 with open('%s.fas' % path, 'w') as out:
                     q = d[0].unique().tolist()

@@ -62,14 +62,14 @@ unzip ./TaxAss/FreshTrain-files/FreshTrain18Aug2016.zip
 ecosystem_fa=FreshTrain18Aug2016/FreshTrain18Aug2016.fasta
 ecosystem_tax=FreshTrain18Aug2016/FreshTrain18Aug2016.taxonomy
 # Decompress the files for reference database
-unzip ./TaxAss/FreshTrain-files/reshTrain-files/FreshTrain*${db}*
+unzip ./TaxAss/FreshTrain-files/FreshTrain-files/FreshTrain*${db}*
 # Set the proper directory for the reference database
-dirname=./TaxAss/FreshTrain-files/reshTrain-files/FreshTrain*${db}*
+dirname=./TaxAss/FreshTrain-files/FreshTrain-files/FreshTrain*${db}*
 dirname=$(basename ${dirname})
 # Get the prefix of the fileset
 pre=${dirname%%.zip}
-general_fa=${pre}/${pre}.fasta
-general_tax=${pre}/${pre}.taxonomy
+general_fa=FreshTrain-files/${pre}.fasta
+general_tax=FreshTrain-files/${pre}.taxonomy
 # Step 1.make BLAST database
 makeblastdb -dbtype nucl -in ${ecosystem_fa} -input_type fasta -parse_seqids \
  -out custom.db
@@ -107,7 +107,7 @@ mothur "#classify.seqs(fasta=${fasta}, template=${general_fa}, taxonomy=${genera
 cp ${fasta%%.fasta}.general.wang.taxonomy > ${prefix}_otus.general.taxonomy
 # Step 12. reformat taxonomy files
 sed 's/[[:blank:]]/\;/' <${prefix}_otus.${pid}.taxonomy >${prefix}_otus.${pid}.taxonomy.reformatted
-mv ${prefix}_otus.${pid}.taxonomy.reformatted ${prefiox}_otus.${pid}.taxonomy
+mv ${prefix}_otus.${pid}.taxonomy.reformatted ${prefix}_otus.${pid}.taxonomy
 sed 's/[[:blank:]]/\;/' <${prefix}_otus.general.taxonomy >${prefix}_otus.general.taxonomy.reformatted
 mv ${prefix}_otus.general.taxonomy.reformatted ${prefix}_otus.general.taxonomy
 # Step 13. compare taxonomy files
