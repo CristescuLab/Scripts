@@ -47,7 +47,7 @@ sed 's/[[:blank:]]/\;/' <${prefix}_otus.general.taxonomy >${prefix}_otus.general
 mv ${prefix}_otus.general.taxonomy.reformatted ${prefix}_otus.general.taxonomy
 # Step 13. compare taxonomy files
 mkdir ${prefix}_conflicts_${1}
-Rscript ${scripts}find_classification_disagreements.R ${prefix}_otus.${1}.taxonomy \
+Rscript ${scripts}/find_classification_disagreements.R ${prefix}_otus.${1}.taxonomy \
 ${prefix}_otus.general.taxonomy ${prefix}_ids.above.${1} conflicts_${1} ${1} 80 80
 }
 
