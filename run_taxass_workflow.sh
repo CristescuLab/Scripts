@@ -116,7 +116,7 @@ Rscript ${scripts}/find_classification_disagreements.R ${prefix}_otus.${pid}.tax
 ${prefix}_otus.general.taxonomy ${prefix}_ids.above.${pid} ${prefix}_conflicts_${pid} ${pid} 80 80
 # run multiple pident cutoffs
 v=""
-for i in seq $(( pid - 5 )) 100
+for i in $(seq $(( pid - 5 )) 100)
 do
   loop ${i}
   v=$(echo "${v} ${prefix}_conflicts_${i} ${prefix}_ids.above.${i} ${i}")
