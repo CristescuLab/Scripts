@@ -33,29 +33,33 @@ def parse_fasta(filename):
 
 
 def main(basta, fasta, otutable,  outdir):
-    os.mkdir(outdir)
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
     df = pd.read_csv(otutable, sep='\t')
-    samples = df.columns[1:]
+    samples = df.index.tolist()
     basta = pd.read_csv(basta, sep='\t', header=None)
     basta['assigned'] = basta[1].apply(
         lambda x: x.strip().strip(';').split(';')[-1])
     fas = parse_fasta(fasta)
     with shelve.open(fas) as dic:
-        for col in samples:
-            seqs = df[df[col] !=0 ]['#OTU ID']
-            sdf = df[df.qseqid.isin(seqs)]
+        for row in samples:
+            seqs = df.loc[row,:][df.loc[row,:] > 0]
+            sdf = basta[basta[0].isin(seqs.index.tolist())]
             for name, d in tqdm(sdf.groupby('assigned')):
-                path = os.path.join(outdir, col, name.replace(' ', '_'))
+                path = os.path.join(outdir, row, name.replace(' ', '_'))
                 if d.empty:
                     continue
+                if not os.path.isdir(path):
+                    os.mkdir(os.path.dirname(path))
                 with open('%s.fas' % path, 'w') as out:
-                    q = d['#OTU ID'].unique().tolist()
+                    q = d[0].unique().tolist()
                     for seq in q:
                         out.write('>%s\n%s' % (seq, dic['>%s' % seq]))
 
 
 if __name__ == '__main__':
     # Usage:
-    # python Get_sequences_from_basta.py bastaout allfasta otutable outdir
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    # python Get_sequences_from_basta4dada.py bastaout allfasta otutable outdir
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+
 
