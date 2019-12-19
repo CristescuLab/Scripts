@@ -57,6 +57,6 @@ def main(basta, fasta, otutable,  outdir):
 if __name__ == '__main__':
     # Usage:
     # python Get_sequences_from_basta.py bastaout allfasta otutable outdir
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
 
 
