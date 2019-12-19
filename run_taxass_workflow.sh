@@ -17,7 +17,8 @@ data2mothur(){
 python3 - << EOF
 import pandas as pd
 df = pd.read_csv("${1}", sep='\t')
-df = df.apply(lambda x: x / sum(x), axis=1).reset_index()
+rel = df.iloc[:, 1:].apply(lambda x: x / sum(x), axis=1)
+df = pd.concat([df.name, rel], axis=1)
 df.to_csv("${2}", sep='\t')
 EOF
 }
@@ -74,11 +75,12 @@ general_tax=${pre}/${pre}.taxonomy
 makeblastdb -dbtype nucl -in ${ecosystem_fa} -input_type fasta -parse_seqids \
  -out custom.db
 # Step 2. run BLAST
-blastn -query ${fasta} -task megablast -db custom.db -out ${prefix}_otus.custom.blast \
--outfmt 11 -max_target_seqs 5
+blastn -query ${fasta} -task megablast -db custom.db -out ${prefix}_otus.custom.blast.table \
+-outfmt "6 qseqid pident length qlen qstart qend"  -max_target_seqs 5
+#-outfmt 11 -max_target_seqs 5
 # Step 3. reformat BLAST results
-blast_formatter -archive ${prefix}_otus.custom.blast \
--outfmt "6 qseqid pident length qlen qstart qend" -out ${prefix}_otus.custom.blast.table
+#blast_formatter -archive ${prefix}_otus.custom.blast \
+#-outfmt "6 qseqid pident length qlen qstart qend" -out ${prefix}_otus.custom.blast.table
 # Step 4. recalculate pident
 Rscript ${scripts}/calc_full_length_pident.R ${prefix}_otus.custom.blast.table \
 ${prefix}_otus.custom.blast.table.modified

@@ -43,7 +43,7 @@ def main(basta, fasta, otutable,  outdir):
     fas = parse_fasta(fasta)
     with shelve.open(fas) as dic:
         for row in samples:
-            seqs = df.loc[row,:][df.loc[row,:] > 0]
+            seqs = df.loc[row,:][df.loc[row, :] > 0]
             sdf = basta[basta[0].isin(seqs.index.tolist())]
             for name, d in tqdm(sdf.groupby('assigned')):
                 path = os.path.join(outdir, row, name.replace(' ', '_'))
