@@ -44,7 +44,7 @@ class FastQ:
     @staticmethod
     def to_dict(seq: str) -> Tuple[str, str]:
         name = seq[0].strip().split()[0][1:]
-        return name, '\n'.join(seq)
+        return name, ''.join(seq)
 
     def parser(self):
         if not os.path.isfile('%s.shelve' % self.prefix):
@@ -56,6 +56,7 @@ class FastQ:
             with shelve.open('%s.shelve' % self.prefix) as dic:
                 dic.update(d)
         else:
+            eprint("Shelve exists... using it")
             with shelve.open('%s.shelve' % self.prefix) as dic:
                 self.dictionary = dict(dic)
 
@@ -72,23 +73,23 @@ def print_it(key, dictionary):
     print(dictionary[key])
 
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
 def main(filename: str, cpus: int, pattern: str, inverse: bool):
     fastq = FastQ(filename=filename, cpus=cpus)
     seqs = fastq.dictionary
     pattern = parse_pattern(pattern)
     if inverse:
-        print('Subsetting inverse match', file=sys.stderr)
+        eprint('Subsetting inverse match')
         subset = set(seqs.keys()).difference(pattern)
     else:
-        print('Subsetting direct match', file=sys.stderr)
+        eprint('Subsetting direct match')
         subset = set(seqs.keys()).intersection(pattern)
 
     for key in tqdm(subset, total=len(subset), desc='Subsetting'):
         print(seqs[key])
-
-    # _ = Parallel(n_jobs=cpus)(delayed(print_it)(key, seqs)
-    #                           for key in tqdm(subset, total=len(subset),
-    #                                           desc='Subsetting'))
 
 
 if __name__ == '__main__':
