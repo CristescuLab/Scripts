@@ -14,6 +14,7 @@ class FastQ:
     def __init__(self, filename: str, cpus: int = -1) -> None:
         self.filename = filename
         self.cpus = cpus
+        self.parser()
 
     @property
     def filename(self):
@@ -41,9 +42,8 @@ class FastQ:
 
     @staticmethod
     def to_dict(seq: str) -> Tuple[str, str]:
-        bl = seq.split('\n')
-        name = bl[0].split()[0]
-        return name, seq
+        name = seq[0].strip().split()[0][1:]
+        return name, '\n'.join(seq)
 
     def parser(self):
         if not os.path.isfile('%s.shelve' % self.prefix):
@@ -62,7 +62,7 @@ class FastQ:
 def parse_pattern(pattern):
     if os.path.isfile(pattern):
         with open(pattern) as p:
-            return p.read().split('\n')
+            return p.read().strip().split('\n')
     else:
         return [pattern]
 
