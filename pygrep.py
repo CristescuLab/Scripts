@@ -71,7 +71,7 @@ def print_it(key, dictionary):
     print(dictionary[key])
 
 
-def main(filename: str, cpus: int, pattern: str, out: str, inverse: bool):
+def main(filename: str, cpus: int, pattern: str, inverse: bool):
     fastq = FastQ(filename=filename, cpus=cpus)
     seqs = fastq.dictionary
     pattern = parse_pattern(pattern)
@@ -95,3 +95,6 @@ if __name__ == '__main__':
                         help="Return all matches not found in pattern")
     parser.add_argument('-p', '--pattern', action='store', required=True,
                         help="Pattern string or file to find")
+    args = parser.parse_args()
+    main(filename=args.fastq, cpus=args.cpus, inverse=args.inverse_match,
+         pattern=args.pattern)
