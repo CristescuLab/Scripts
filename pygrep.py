@@ -4,6 +4,7 @@ from typing import Tuple
 from tqdm import tqdm
 import shelve
 import gzip
+import sys
 import os
 
 class FastQ:
@@ -76,13 +77,18 @@ def main(filename: str, cpus: int, pattern: str, inverse: bool):
     seqs = fastq.dictionary
     pattern = parse_pattern(pattern)
     if inverse:
+        print('Subsetting inverse match', file=sys.stderr)
         subset = set(seqs.keys()).difference(pattern)
     else:
+        print('Subsetting direct match', file=sys.stderr)
         subset = set(seqs.keys()).intersection(pattern)
 
-    _ = Parallel(n_jobs=cpus)(delayed(print_it)(key, seqs)
-                              for key in tqdm(subset, total=len(subset),
-                                              desc='Subsetting'))
+    for key in tqdm(subset, total=len(subset), desc='Subsetting'):
+        print(seqs[key])
+
+    # _ = Parallel(n_jobs=cpus)(delayed(print_it)(key, seqs)
+    #                           for key in tqdm(subset, total=len(subset),
+    #                                           desc='Subsetting'))
 
 
 if __name__ == '__main__':
