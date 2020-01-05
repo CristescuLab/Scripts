@@ -2,6 +2,7 @@ from itertools import zip_longest
 from joblib import Parallel, delayed
 from typing import Tuple
 from tqdm import tqdm
+import numpy as np
 import shelve
 import gzip
 import sys
@@ -83,10 +84,10 @@ def main(filename: str, cpus: int, pattern: str, inverse: bool):
     pattern = parse_pattern(pattern)
     if inverse:
         eprint('Subsetting inverse match')
-        subset = set(seqs.keys()).difference(pattern)
+        subset = np.setdiff1d(np.array(seqs.keys()), np.array(pattern))
     else:
         eprint('Subsetting direct match')
-        subset = set(seqs.keys()).intersection(pattern)
+        subset = np.intersect1d(np.array(seqs.keys()), np.array(pattern))
 
     for key in tqdm(subset, total=len(subset), desc='Subsetting'):
         print(seqs[key])
