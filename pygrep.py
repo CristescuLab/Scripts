@@ -13,9 +13,11 @@ class FastQ:
     tipo = None
     prefix = None
 
-    def __init__(self, filename: str, cpus: int = -1) -> None:
+    def __init__(self, filename: str, cpus: int = -1, nodump: bool = True
+                 ) -> None:
         self.filename = filename
         self.cpus = cpus
+        self.nodump = nodump
         self.parser()
 
     @property
@@ -54,8 +56,11 @@ class FastQ:
                                                            desc="Parsing file")
                                            )
             self.dictionary = dict(d)
-            with shelve.open('%s.shelve' % self.prefix) as dic:
-                dic.update(d)
+            if not self.nodump:
+                eprint('Dumping sequences in shelve')
+                with shelve.open('%s.shelve' % self.prefix) as dic:
+                    dic.update(d)
+                eprint("Done!!")
         else:
             eprint("Shelve exists... using it")
             with shelve.open('%s.shelve' % self.prefix) as dic:
@@ -78,8 +83,8 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def main(filename: str, cpus: int, pattern: str, inverse: bool):
-    fastq = FastQ(filename=filename, cpus=cpus)
+def main(filename: str, cpus: int, pattern: str, inverse: bool, nodump: bool):
+    fastq = FastQ(filename=filename, cpus=cpus, nodump=nodump)
     seqs = fastq.dictionary
     pattern = parse_pattern(pattern)
     if inverse:
@@ -103,6 +108,8 @@ if __name__ == '__main__':
                         help="Return all matches not found in pattern")
     parser.add_argument('-p', '--pattern', action='store', required=True,
                         help="Pattern string or file to find")
+    parser.add_argument('-d', '--nodump', action='store_false',
+                        help="Avoid creating persisting object (shelve)")
     args = parser.parse_args()
     main(filename=args.fastq, cpus=args.cpus, inverse=args.inverse_match,
-         pattern=args.pattern)
+         pattern=args.pattern, nodump=args.nodump)
