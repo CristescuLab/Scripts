@@ -84,10 +84,10 @@ def main(filename: str, cpus: int, pattern: str, inverse: bool):
     pattern = parse_pattern(pattern)
     if inverse:
         eprint('Subsetting inverse match')
-        subset = np.setdiff1d(np.array(seqs.keys()), np.array(pattern))
+        subset = np.setdiff1d(np.array(list(seqs.keys())), np.array(pattern))
     else:
         eprint('Subsetting direct match')
-        subset = np.intersect1d(np.array(seqs.keys()), np.array(pattern))
+        subset = np.intersect1d(np.array(list(seqs.keys())), np.array(pattern))
 
     for key in tqdm(subset, total=len(subset), desc='Subsetting'):
         print(seqs[key])
