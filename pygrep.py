@@ -109,7 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--pattern', action='store', required=True,
                         help="Pattern string or file to find")
     parser.add_argument('-d', '--nodump', action='store_false',
-                        help="Avoid creating persisting object (shelve)")
+                        help="Create persisting object (shelve)")
     args = parser.parse_args()
     main(filename=args.fastq, cpus=args.cpus, inverse=args.inverse_match,
          pattern=args.pattern, nodump=args.nodump)
