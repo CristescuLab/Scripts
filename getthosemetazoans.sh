@@ -37,11 +37,16 @@ EOF
 dbname=$(basename $1)
 prefix="${3}"_"${dbname}"
 # Run Kaken classification
+echo "Running kraken2 --db ${1} <(seqkit fq2fa ${2}) > ${prefix}.kraken2"
 kraken2 --db "${1}" <(seqkit fq2fa "${2}") > "${prefix}".kraken2
 # Get the unclassified
+echo "Running grep '^U' ${prefix}.kraken2| cut -f 2 > ${prefix}.unclassified"
 grep "^U" "${prefix}".kraken2| cut -f 2 > "${prefix}".unclassified
+echo "Running python3 ${4} ${2} -c ${5} -p ${prefix}.unclassified > ${prefix}.unclassified.fq"
 python3 ${4} ${2} -c ${5} -p "${prefix}".unclassified > "${prefix}".unclassified.fq
 # get the eukaryotes from the classified sequences
+echo "Running find_euks ${prefix}.kraken2 ${prefix}.euks"
 find_euks "${prefix}".kraken2 "${prefix}".euks
+echo "Running python3 ${4} ${2} -c ${5} -p ${prefix}.euks > ${prefix}.euks.fq"
 python3 ${4} ${2} -c ${5} -p "${prefix}".euks > "${prefix}".euks.fq
 
