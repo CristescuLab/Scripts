@@ -53,10 +53,11 @@ fi
 # get the eukaryotes from the classified sequences
 if [[ ! -s ${prefix}.euks ]]; then
   echo "Running find_euks ${prefix}.kraken2 ${prefix}.euks"
-  find_euks "${prefix}".kraken2 "${prefix}".euks
+  find_euks "${prefix}".kraken2 "${prefix}"_seqnames.euks
+  grep -f "${prefix}"_seqnames.euks "${prefix}".kraken2 > "${prefix}"_justEUK.kraken2
 fi
 if [[ ! -s ${prefix}.euks.fq ]]; then
-  echo "Running python3 ${4} ${2} -c ${5} -p ${prefix}.euks > ${prefix}.euks.fq"
-  python3 "${4}" "${2}" -c "${5}" -p "${prefix}".euks > "${prefix}".euks.fq
+  echo "Running python3 ${4} ${2} -c ${5} -p ${prefix}_seqnames.euks > ${prefix}.euks.fq"
+  python3 "${4}" "${2}" -c "${5}" -p "${prefix}"_seqnames.euks > "${prefix}".euks.fq
 fi
 
